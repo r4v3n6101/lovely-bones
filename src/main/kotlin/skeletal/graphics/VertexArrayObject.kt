@@ -15,4 +15,10 @@ class VertexArrayObject(val id: Int, val vbos: IntArray) : Cleanable {
 
     inline fun bind() = glBindVertexArray(id)
     inline fun unbind() = glBindVertexArray(0)
+
+    inline fun use(action: () -> Unit) {
+        bind()
+        action()
+        unbind()
+    }
 }

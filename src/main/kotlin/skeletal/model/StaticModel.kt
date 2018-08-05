@@ -1,34 +1,50 @@
 package skeletal.model
 
+import net.minecraft.client.renderer.texture.TextureUtil.missingTexture
 import net.minecraft.util.AxisAlignedBB
+import net.minecraftforge.client.model.IModelCustom
 import org.lwjgl.opengl.GL11.*
+import skeletal.graphics.Cleanable
 import skeletal.graphics.VertexArrayObject
 
-//TODO : Should I create general Model?
-class StaticModel(val vao: VertexArrayObject, val meshes: Map<String, Mesh>, val bound: AxisAlignedBB? = null) {
+open class StaticModel(
+        val vao: VertexArrayObject, val meshes: Map<String, Mesh>, val bound: AxisAlignedBB? = null
+) : IModelCustom, Cleanable by vao {
+
+    override fun getType() = "StaticModel"
+
+    override fun renderAll() {
+        vao.use {
+            meshes.forEach { (_, mesh) -> renderMesh(mesh) }
+        }
+    }
+
+    override fun renderPart(partName: String) {
+        vao.use {
+            meshes[partName]?.let(::renderMesh)
+        }
+    }
+
+    override fun renderOnly(vararg groupNames: String) {
+        vao.use {
+            groupNames.forEach { name -> meshes[name]?.let(::renderMesh) }
+        }
+    }
+
+    override fun renderAllExcept(vararg excludedGroupNames: String) {
+        val set = excludedGroupNames.toHashSet() // O(1) for check containment
+        vao.use {
+            meshes.forEach { (name, mesh) -> if (name !in set) renderMesh(mesh) }
+        }
+    }
 
     private fun renderMesh(mesh: Mesh) {
-        //glBindTexture(mesh.material) FIXME TODO create texture
-        vao.bind()
+        glBindTexture(GL_TEXTURE_2D, mesh.material ?: missingTexture.glTextureId)
         glDrawElements(
                 GL_TRIANGLES,
                 mesh.indices,
                 GL_UNSIGNED_INT,
                 mesh.firstIndex * 4L // offset in bytes, every index is int
         )
-        vao.unbind()
-    }
-
-    fun renderAll() {
-        meshes.forEach { (_, mesh) -> renderMesh(mesh) }
-    }
-
-    fun renderPart(vararg names: String) {
-        names.forEach { name -> meshes[name]?.let { renderMesh(it) } }
-    }
-
-    fun renderExcept(vararg names: String) {
-        val set = names.toHashSet() // O(1) for check containment
-        meshes.forEach { (name, mesh) -> if (name !in set) renderMesh(mesh) }
     }
 }

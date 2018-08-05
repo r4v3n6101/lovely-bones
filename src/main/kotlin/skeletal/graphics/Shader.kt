@@ -18,9 +18,9 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
     inline fun bind() = glUseProgram(program)
     inline fun unbind() = glUseProgram(0)
 
-    inline fun use(f: () -> Unit) {
+    inline fun use(action: Shader.() -> Unit) {
         bind()
-        f()
+        action()
         unbind()
     }
 
