@@ -1,13 +1,30 @@
 package skeletal.model.animated
 
+import org.lwjgl.util.vector.Matrix4f
+import org.lwjgl.util.vector.Matrix4f.mul
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
-import skeletal.math.transformPos
+import skeletal.math.buildTransform
 
 class Bone(
-        val id: Int, // TODO
-        val parent: Int, // TODO : Is it necessary?
-        val baseRotation: Quaternion, val basePosition: Vector3f,
-        val inverseBaseRotation: Quaternion = baseRotation.negate(null),
-        val inverseBasePosition: Vector3f = basePosition.negate(null).let { transformPos(inverseBaseRotation, it, it) }
-)
+        val name: String,
+        val parent: Bone?, // null if root
+        val position: Vector3f,
+        val rotation: Quaternion,
+        val scale: Vector3f
+) {
+
+    val baseTransform: Matrix4f by lazy {
+        val transform = buildTransform(rotation, scale, position)
+        var parentBone = parent
+        while (parentBone != null) {
+            mul(parentBone.baseTransform, transform, transform)
+            parentBone = parentBone.parent
+        }
+        transform
+    }
+
+    val inverseBaseTransform: Matrix4f by lazy {
+        Matrix4f.invert(baseTransform, null)
+    }
+}

@@ -20,8 +20,15 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
 
     inline fun use(action: Shader.() -> Unit) {
         bind()
-        action()
+        this.action()
         unbind()
+    }
+
+    fun getUniformLocations(vararg names: String) =
+            IntArray(names.size) { glGetUniformLocation(program, names[it]) }
+
+    inline fun bindAttributes(vararg attributes: Pair<Int, String>) {
+        attributes.forEach { (index, name) -> glBindAttribLocation(program, index, name) }
     }
 
     companion object {
@@ -43,10 +50,6 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
             if (glGetProgrami(program, GL_VALIDATE_STATUS) == GL11.GL_FALSE)
                 println(glGetProgramInfoLog(program, GL_INFO_LOG_LENGTH))
             return Shader(program, shaders)
-        }
-
-        inline fun Shader.bindAttributes(vararg attributes: Pair<Int, String>) {
-            attributes.forEach { (index, name) -> glBindAttribLocation(program, index, name) }
         }
     }
 }

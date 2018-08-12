@@ -7,7 +7,7 @@ import skeletal.model.StaticModel
 
 class AnimatedModel(
         vao: VertexArrayObject, meshes: Map<String, Mesh>, bound: AxisAlignedBB?,
-        val skeleton: Map<String, Bone>?, val animations: Map<String, Animation>? // TODO Reduce null ammount
+        val skeleton: List<Bone>, val animations: Map<String, Animation>
 ) : StaticModel(vao, meshes, bound) {
     override fun getType() = "AnimatedModel"
 }

@@ -8,12 +8,13 @@ import org.lwjgl.opengl.GL15.*
 import org.lwjgl.opengl.GL20.glEnableVertexAttribArray
 import org.lwjgl.opengl.GL20.glVertexAttribPointer
 import org.lwjgl.opengl.GL30.*
+import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
 import skeletal.DOMEN
 import skeletal.graphics.VertexArrayObject
 import skeletal.math.DualQuat
-import skeletal.math.transformPos
+import skeletal.math.buildTransform
 import skeletal.minecraft
 import skeletal.model.Mesh
 import skeletal.model.animated.AnimatedModel
@@ -38,6 +39,7 @@ object IQMLoader : ModelLoader {
         val vertexarraysOffset = buf.int
         val trianglesNum = buf.int
         val trianglesOffset = buf.int
+        buf.int // adjacency
         val bonesNum = buf.int // or joints
         val bonesOffset = buf.int
         val posesNum = buf.int
@@ -45,7 +47,7 @@ object IQMLoader : ModelLoader {
         val animsNum = buf.int
         val animsOffset = buf.int
         val framesNum = buf.int
-        val framechannelsNum = buf.int
+        buf.int // framechannelsNum
         val framedataOffset = buf.int
         val boundsOffset = buf.int
 
@@ -79,32 +81,37 @@ object IQMLoader : ModelLoader {
             meshes[meshName] = Mesh(loadTexture(material), firstTri * 3, numTris * 3)
         }
 
-        var bones: ArrayList<Pair<String, Bone>>? = null
-        var anims: HashMap<String, Animation>? = null
+        val bones: ArrayList<Bone> = ArrayList(bonesNum)
+        val anims: HashMap<String, Animation> = HashMap(animsNum)
 
+        // TODO Rewrite animation reading code
         if (bonesOffset != 0 && posesOffset != 0 && animsOffset != 0 && framedataOffset != 0) {
             buf.position(bonesOffset)
-            bones = ArrayList(bonesNum)
             repeat(bonesNum) {
                 val name = readNulString(text, buf.int)
                 val parent = buf.int
                 val translate = Vector3f(buf.float, buf.float, buf.float)
-                val rotate = Quaternion(buf.float, buf.float, buf.float, buf.float)
-                buf.float; buf.float; buf.float // skip scale
-                bones.add(name to Bone(it, parent, rotate, translate))
+                val rotation = Quaternion(buf.float, buf.float, buf.float, buf.float)
+                val scale = Vector3f(buf.float, buf.float, buf.float)
+                bones += Bone(name, bones.getOrNull(parent), translate, rotation, scale)
             }
 
+            buf.position(framedataOffset)
             val framedata = buf.slice()
-            framedata.position(framedataOffset)
 
-            val keyframes = ArrayList<Keyframe>(framesNum * posesNum)
-            buf.position(posesOffset)
+            val keyframes = ArrayList<Keyframe>(framesNum)
             for (i in 0 until framesNum) {
-                val transforms = ArrayList<DualQuat>(posesNum)
+                buf.position(posesOffset)
+                val transforms = Array(posesNum) { Matrix4f() }
                 for (j in 0 until posesNum) {
-                    val parent = buf.int // FIXME
+                    val parent = buf.int
                     val channelMask = buf.int
                     val channeloffset = floatArrayOf(
+                            buf.float, buf.float, buf.float, // Translation
+                            buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
+                            buf.float, buf.float, buf.float // Scale (unused)
+                    )
+                    val channelscale = floatArrayOf(
                             buf.float, buf.float, buf.float, // Translation
                             buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
                             buf.float, buf.float, buf.float // Scale (unused)
@@ -112,30 +119,32 @@ object IQMLoader : ModelLoader {
 
                     for (channel in channeloffset.indices)
                         if ((channelMask shr channel) and 1 == 1) // If mask contains bit in @channel position scale data
-                            channeloffset[channel] += buf.float * framedata.short
+                            channeloffset[channel] += channelscale[channel] * framedata.short
 
                     val p = Vector3f(channeloffset[0], channeloffset[1], channeloffset[2])
                     val q = Quaternion(channeloffset[3], channeloffset[4], channeloffset[5], channeloffset[6])
-                    // Take in account bones space, so...
-                    val bone = bones[j].second
-                    Vector3f.add(transformPos(q, bone.inverseBasePosition, null), p, p)
-                    Quaternion.mul(bone.inverseBaseRotation, q, q)
-
-                    val transformation = DualQuat.fromQuatAndTranslation(q, p)
-                    transforms.add(transformation)
+                    val s = Vector3f(channeloffset[7], channeloffset[8], channeloffset[9])
+                    val bone = bones[j]
+                    // parentBone * mine * inverseBone
+                    val transform = buildTransform(q, s, p)
+                    val parentBone = bone.parent
+                    if (parentBone != null) {
+                        Matrix4f.mul(transforms[parent], transform, transform)
+                    }
+                    Matrix4f.mul(transform, bone.inverseBaseTransform, transform)
+                    transforms[j] = transform
                 }
-                keyframes.add(Keyframe(transforms.toTypedArray()))
+                keyframes += Keyframe(transforms.map(DualQuat.Companion::fromMatrix).toTypedArray())
             }
 
             buf.position(animsOffset)
-            anims = HashMap(animsNum)
             repeat(animsNum) {
                 val name = readNulString(text, buf.int)
                 val firstFrame = buf.int
                 val frames = buf.int
                 val framerate = buf.float
                 val loop = buf.int == 1
-                val animKeyframes = keyframes.slice(firstFrame..frames).toTypedArray()
+                val animKeyframes = keyframes.slice(firstFrame until firstFrame + frames).toTypedArray()
                 anims[name] = Animation(animKeyframes, framerate, loop)
             }
         }
@@ -147,14 +156,14 @@ object IQMLoader : ModelLoader {
                     buf.float.toDouble(), buf.float.toDouble(), buf.float.toDouble() // max
             )
         } else null
-        return AnimatedModel(VertexArrayObject(vaoId, vbos), meshes, aabb, bones?.toMap(), anims)
+        return AnimatedModel(VertexArrayObject(vaoId, vbos), meshes, aabb, bones, anims)
     }
 
     private fun loadTexture(material: String) =
             if (material.isEmpty())
                 null
             else
-                minecraft.textureManager.getTexture(ResourceLocation(DOMEN, "textures/$material")).glTextureId
+                minecraft.textureManager.getTexture(ResourceLocation(DOMEN, "textures/$material"))?.glTextureId
 
     /**
      * Read iqmvertexarray directly to VBO

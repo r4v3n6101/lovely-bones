@@ -1,7 +1,7 @@
 package skeletal.model.animated
 
-import skeletal.math.DualQuat
-import kotlin.math.truncate
+import java.nio.FloatBuffer
+import kotlin.math.floor
 
 class Animator {
     private var time: Float = 0f
@@ -18,19 +18,36 @@ class Animator {
         time += dt
     }
 
-    fun prepareShaderData(): Array<DualQuat> {
-        val localCopyOfAnim = currentAnimation ?: error("Lol") // FIXME
-        val timestep = time / frameTime
-        val keyframes = localCopyOfAnim.keyframes
-        val kf1 = (truncate(timestep).toInt()) % localCopyOfAnim.keyframes.size // int part of time
-        val kf2 = (kf1 + 1) % localCopyOfAnim.keyframes.size // TODO : Loop
-        val keyframe1 = keyframes[kf1]
-        val keyframe2 = keyframes[kf2]
-        val interpolationStep = timestep - kf1 // fract part of time
+    // TODO : Loop
+    fun storeSkeletonData(buf: FloatBuffer) {
+        val localAnim = currentAnimation
+        if (localAnim != null) {
+            val timestep = time * frameTime
+            val keyframes = localAnim.keyframes
 
-        return Array(keyframe1.transforms.size) { i ->
-            keyframe1.transforms[i].lerp(keyframe2.transforms[i], interpolationStep, null)
-        } // TODO : Cache or load directly to buffer
+            val kf1 = floor(timestep).toInt()  // int part of time
+            val kf2 = kf1 + 1
+            val lerpStep = timestep - kf1 // fract part of time
+
+            val keyframe1 = keyframes[kf1 % keyframes.size]
+            val keyframe2 = keyframes[kf2 % keyframes.size]
+            val skeletonSize = keyframe1.transforms.size
+
+            repeat(skeletonSize) { index ->
+                val dq0 = keyframe1.transforms[index]
+                val dq1 = keyframe2.transforms[index]
+
+                buf.put(dq0.q0.x + lerpStep * (dq1.q0.x - dq0.q0.x))
+                buf.put(dq0.q0.y + lerpStep * (dq1.q0.y - dq0.q0.y))
+                buf.put(dq0.q0.z + lerpStep * (dq1.q0.z - dq0.q0.z))
+                buf.put(dq0.q0.w + lerpStep * (dq1.q0.w - dq0.q0.w))
+
+                buf.put(dq0.q1.x + lerpStep * (dq1.q1.x - dq0.q1.x))
+                buf.put(dq0.q1.y + lerpStep * (dq1.q1.y - dq0.q1.y))
+                buf.put(dq0.q1.z + lerpStep * (dq1.q1.z - dq0.q1.z))
+                buf.put(dq0.q1.w + lerpStep * (dq1.q1.w - dq0.q1.w))
+            }
+        }
     }
 
     fun resetTime() {

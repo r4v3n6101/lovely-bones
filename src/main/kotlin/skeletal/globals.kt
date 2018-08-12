@@ -14,8 +14,10 @@ import skeletal.graphics.UniformBufferObject
 import java.io.BufferedReader
 import java.nio.FloatBuffer
 
-const val DOMEN = "skeletal"
+// TODO : Replace some fields to another classes
 
+const val DOMEN = "skeletal"
+const val MAX_BONES = 128
 private val projectionBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
 private val modelviewBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
 private val matricesBuf: FloatBuffer = BufferUtils.createFloatBuffer(32)
@@ -40,25 +42,31 @@ val MATRICES_UNIFORM_BLOCK: UniformBufferObject by lazy { UniformBufferObject.cr
 val STATIC_MODEL_SHADER: Shader by lazy {
     val vertexText = ResourceLocation(DOMEN, "shaders/static_vertex.glsl").inputStream.bufferedReader()
             .use(BufferedReader::readText)
-    val fragText = ResourceLocation(DOMEN, "shaders/static_fragment.glsl").inputStream.bufferedReader()
+    val fragText = ResourceLocation(DOMEN, "shaders/model_fragment.glsl").inputStream.bufferedReader()
             .use(BufferedReader::readText)
 
     val vertexShader = createShader(GL_VERTEX_SHADER, vertexText)
     val fragShader = createShader(GL_FRAGMENT_SHADER, fragText)
+
     val shader = createProgram(vertexShader, fragShader)
     MATRICES_UNIFORM_BLOCK.connectWithShader(shader, "Matrices") // TODO : Replace lazy method to init
     shader
 }
 
-/*val animatedModelShader: Shader by lazy {
-    val vertexPath = ResourceLocation(DOMEN, "shaders/animated_vertex.glsl")
-    val fragPath = ResourceLocation(DOMEN, "shaders/animated_frag.glsl")
+val skeletonCacheBuf: FloatBuffer by lazy {
+    BufferUtils.createFloatBuffer(MAX_BONES * 8) // every bone is 8 floats
+}
 
-    val vertexText = vertexPath.inputStream.bufferedReader().use(BufferedReader::readText)
-    val fragText = fragPath.inputStream.bufferedReader().use(BufferedReader::readText)
+val ANIMATED_MODEL_SHADER: Shader by lazy {
+    val vertexText = ResourceLocation(DOMEN, "shaders/animated_vertex.glsl").inputStream.bufferedReader()
+            .use(BufferedReader::readText).replace("{MAX_BONES}", "$MAX_BONES")
+    val fragText = ResourceLocation(DOMEN, "shaders/model_fragment.glsl").inputStream.bufferedReader()
+            .use(BufferedReader::readText) // TODO : Reduce repetition
 
     val vertexShader = createShader(GL_VERTEX_SHADER, vertexText)
-    val fragShader = createShader(GL_VERTEX_SHADER, fragText)
+    val fragShader = createShader(GL_FRAGMENT_SHADER, fragText)
 
-    createProgram(vertexShader, fragShader)
-}*/
+    val shader = createProgram(vertexShader, fragShader)
+    MATRICES_UNIFORM_BLOCK.connectWithShader(shader, "Matrices") // TODO : Replace lazy method to init
+    shader
+}
