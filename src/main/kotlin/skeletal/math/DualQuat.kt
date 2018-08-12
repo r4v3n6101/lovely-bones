@@ -49,21 +49,6 @@ class DualQuat(var q0: Quaternion, var q1: Quaternion) : Vector(), ReadableVecto
         return this
     }
 
-    fun lerp(dq1: DualQuat, t: Float, dest: DualQuat?): DualQuat {
-        val out = dest ?: DualQuat(Quaternion(), Quaternion())
-        out.q0.x = q0.x + t * (dq1.q0.x - q0.x)
-        out.q0.y = q0.y + t * (dq1.q0.y - q0.y)
-        out.q0.z = q0.z + t * (dq1.q0.z - q0.z)
-        out.q0.w = q0.w + t * (dq1.q0.w - q0.w)
-
-        out.q1.x = q1.x + t * (dq1.q1.x - q1.x)
-        out.q1.y = q1.y + t * (dq1.q1.y - q1.y)
-        out.q1.z = q1.z + t * (dq1.q1.z - q1.z)
-        out.q1.w = q1.w + t * (dq1.q1.w - q1.w)
-
-        return out
-    }
-
     companion object {
         fun fromQuatAndTranslation(q: Quaternion, t: Vector3f) = DualQuat(q, mulPure(q, t).scale(0.5f) as Quaternion)
 

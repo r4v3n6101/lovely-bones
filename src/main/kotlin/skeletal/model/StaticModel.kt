@@ -19,6 +19,9 @@ open class StaticModel(
         }
     }
 
+    /**
+     * Don't use more than one time. If you need to draw some meshes, use renderOnly
+     */
     override fun renderPart(partName: String) {
         vao.use {
             meshes[partName]?.let(::renderMesh)

@@ -1,4 +1,4 @@
-buildscript {
+buildscript { 
     repositories {
         mavenCentral()
         maven {
@@ -17,27 +17,35 @@ buildscript {
 
 apply plugin: 'forge'
 
-version = "NO-VERSION"
-group = "com.skeletal"
-archivesBaseName = "skeletal_anim"
+idea.module.inheritOutputDirs = true
 
-compileJava.options.encoding = 'UTF-8'
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+version = "NO-VERSION"
+group = "skeletal_anim"
+archivesBaseName = "SkeletalAnim"
 
 minecraft {
     version = "1.7.10-10.13.4.1614-1.7.10"
     runDir = "game"
 }
 
-dependencies {}
+dependencies {
+}
+
+sourceSets {
+    main.java.srcDirs += 'src/main/java'
+}
+
+compileJava {
+    targetCompatibility = '1.8'
+    sourceCompatibility = '1.8'
+}
 
 processResources {
     inputs.property "version", project.version
     inputs.property "mcversion", project.minecraft.version
     from(sourceSets.main.resources.srcDirs) {
         include 'mcmod.info'
-        expand 'version': project.version, 'mcversion': project.minecraft.version
+        expand 'version':project.version, 'mcversion':project.minecraft.version
     }
     from(sourceSets.main.resources.srcDirs) {
         exclude 'mcmod.info'
