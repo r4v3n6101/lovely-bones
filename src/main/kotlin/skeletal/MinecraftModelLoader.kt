@@ -4,6 +4,7 @@ import net.minecraft.util.ResourceLocation
 import net.minecraftforge.client.model.IModelCustomLoader
 import skeletal.model.loader.ModelLoader
 
+// TODO : Reduce class
 class MinecraftModelLoader(
         @JvmField val suffixes: Array<String>,
         @JvmField val type: String,

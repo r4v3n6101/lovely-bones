@@ -48,7 +48,7 @@ object IQMLoader : ModelLoader {
         val animsNum = buf.int
         val animsOffset = buf.int
         val framesNum = buf.int
-        buf.int // framechannelsNum
+        val framechannels = buf.int // framechannelsNum
         val framedataOffset = buf.int
         val boundsOffset = buf.int
 
@@ -92,50 +92,51 @@ object IQMLoader : ModelLoader {
                 val name = readNulString(text, buf.int)
                 val parent = buf.int
                 val translate = Vector3f(buf.float, buf.float, buf.float)
-                val rotation = Quaternion(buf.float, buf.float, buf.float, buf.float)
-                rotation.normalise()
+                val rotation = Quaternion(buf.float, buf.float, buf.float, buf.float).apply { normalise() }
                 val scale = Vector3f(buf.float, buf.float, buf.float)
                 bones += Bone(name, bones.getOrNull(parent), translate, rotation, scale)
             }
 
-            buf.position(framedataOffset)
-            val framedata = buf.slice()
+            buf.position(posesOffset)
+            val poses = Array(posesNum) {
+                iqmpose(buf.int, buf.int,
+                        floatArrayOf(
+                                buf.float, buf.float, buf.float, // Translation
+                                buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
+                                buf.float, buf.float, buf.float // Scale (unused)
+                        ),
+                        floatArrayOf(
+                                buf.float, buf.float, buf.float, // Translation
+                                buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
+                                buf.float, buf.float, buf.float // Scale (unused)
+                        )
+                )
+            }
 
+            buf.position(framedataOffset)
             val keyframes = ArrayList<Keyframe>(framesNum)
             for (i in 0 until framesNum) {
-                buf.position(posesOffset)
                 val transforms = Array(posesNum) { Matrix4f() }
                 for (j in 0 until posesNum) {
-                    val parent = buf.int
-                    val channelMask = buf.int
-                    val channeloffset = floatArrayOf(
-                            buf.float, buf.float, buf.float, // Translation
-                            buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
-                            buf.float, buf.float, buf.float // Scale (unused)
-                    )
-                    val channelscale = floatArrayOf(
-                            buf.float, buf.float, buf.float, // Translation
-                            buf.float, buf.float, buf.float, buf.float, // Rotation (Quaternion)
-                            buf.float, buf.float, buf.float // Scale (unused)
-                    )
+                    val pose = poses[j]
+                    val off = pose.offset.copyOf()
+                    for (channel in off.indices)
+                        if ((pose.mask ushr channel) and 1 != 0)
+                            off[channel] += pose.scale[channel] * java.lang.Short.toUnsignedInt(buf.short)
 
-                    for (channel in channeloffset.indices)
-                        if ((channelMask shr channel) and 1 == 1) // If mask contains bit in @channel position scale data
-                            channeloffset[channel] += channelscale[channel] * framedata.short
-
-                    val p = Vector3f(channeloffset[0], channeloffset[1], channeloffset[2])
-                    val q = Quaternion(channeloffset[3], channeloffset[4], channeloffset[5], channeloffset[6])
-                    q.normalise()
-                    val s = Vector3f(channeloffset[7], channeloffset[8], channeloffset[9])
+                    val p = Vector3f(off[0], off[1], off[2])
+                    val q = Quaternion(off[3], off[4], off[5], off[6])
+                            .apply { normalise() }
+                    val s = Vector3f(off[7], off[8], off[9])
                     val bone = bones[j]
-                    // parentBone * mine * inverseBone
-                    val transform = buildTransform(q, s, p)
+
                     val parentBone = bone.parent
-                    if (parentBone != null) {
-                        Matrix4f.mul(parentBone.baseTransform, transform, transform)
-                    }
-                    Matrix4f.mul(transform, bone.inverseBaseTransform, transform)
-                    transforms[j] = transform
+                    val m = buildTransform(q, s, p)
+                    if (parentBone != null) Matrix4f.mul(transforms[pose.parent], m, m)
+                    transforms[j] = m
+                }
+                for (j in 0 until posesNum) {
+                    Matrix4f.mul(transforms[j], bones[j].inverseBaseTransform, transforms[j])
                 }
                 keyframes += Keyframe(transforms.map(DualQuat.Companion::fromMatrix).toTypedArray())
             }
@@ -158,9 +159,11 @@ object IQMLoader : ModelLoader {
                     buf.float.toDouble(), buf.float.toDouble(), buf.float.toDouble(), // min
                     buf.float.toDouble(), buf.float.toDouble(), buf.float.toDouble() // max
             )
-        } else null
+        } else null // TODO : Read all bounds
         return AnimatedModel(VertexArrayObject(vaoId, vbos), meshes, aabb, bones, anims)
     }
+
+    private class iqmpose(val parent: Int, val mask: Int, val offset: FloatArray, val scale: FloatArray) // TODO : Try to reduce struct
 
     private fun loadTexture(material: String) =
             if (material.isEmpty())

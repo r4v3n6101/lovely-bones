@@ -32,12 +32,11 @@ class Animator {
             val keyframe1 = keyframes[kf1 % keyframes.size]
             val keyframe2 = keyframes[kf2 % keyframes.size]
             val skeletonSize = keyframe1.transforms.size
-
             repeat(skeletonSize) { index ->
                 val dq0 = keyframe1.transforms[index]
                 val dq1 = keyframe2.transforms[index]
 
-                buf.put(dq0.q0.x + lerpStep * (dq1.q0.x - dq0.q0.x))
+                buf.put(dq0.q0.x + lerpStep * (dq1.q0.x - dq0.q0.x)) // TODO : Longest path fix
                 buf.put(dq0.q0.y + lerpStep * (dq1.q0.y - dq0.q0.y))
                 buf.put(dq0.q0.z + lerpStep * (dq1.q0.z - dq0.q0.z))
                 buf.put(dq0.q0.w + lerpStep * (dq1.q0.w - dq0.q0.w))

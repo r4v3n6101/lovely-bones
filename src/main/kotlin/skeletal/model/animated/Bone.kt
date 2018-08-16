@@ -1,7 +1,6 @@
 package skeletal.model.animated
 
 import org.lwjgl.util.vector.Matrix4f
-import org.lwjgl.util.vector.Matrix4f.mul
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
 import skeletal.math.buildTransform
@@ -18,7 +17,7 @@ class Bone(
         val transform = buildTransform(rotation, scale, position)
         val parentBone = parent
         if (parentBone != null) {
-            mul(parentBone.baseTransform, transform, transform)
+            Matrix4f.mul(parentBone.baseTransform, transform, transform)
         }
         transform
     }

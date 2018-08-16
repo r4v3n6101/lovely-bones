@@ -76,8 +76,8 @@ class ModColladaModel {
             glUniform2f(uniformLocations[2], lightU, lightV)
 
             glUniformMatrix2x4(uniformLocations[5], false, skeletonCacheBuf)
-            repeat(5) { i ->
-                repeat(5) { j ->
+            repeat(1) { i ->
+                repeat(1) { j ->
                     val modelBuf = BufferUtils.createFloatBuffer(16)
                     val modelMat = Matrix4f()
                     modelMat
@@ -88,7 +88,8 @@ class ModColladaModel {
                                             (5 + 7 * i) - renderPosZ.toFloat()
                                     )
                             )
-                            .rotate(90f / 2, Vector3f(-1f, 0f, 0f))
+                            //.rotate(45.5f, Vector3f(-1f, 0f, 0f))
+                            //.scale(Vector3f(0.03f, 0.03f, 0.03f))
                             .store(modelBuf)
                     modelBuf.flip()
                     glUniformMatrix4(uniformLocations[3], false, modelBuf)

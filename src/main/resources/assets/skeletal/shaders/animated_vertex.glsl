@@ -47,10 +47,6 @@ mat2x4 getBlendedDualQuat(vec4 indices, vec4 weights) {
     mat2x4 dq2 = transforms[int(indices.z)];
     mat2x4 dq3 = transforms[int(indices.w)];
 
-    if (dot(dq0[0], dq1[0]) < 0.0) weights.y *= -1.0;
-    if (dot(dq0[0], dq2[0]) < 0.0) weights.z *= -1.0;
-    if (dot(dq0[0], dq3[0]) < 0.0) weights.w *= -1.0;
-
     mat2x4 blendedDQ = dq0 * weights.x + dq1 * weights.y + dq2 * weights.z + dq3 * weights.w;
 
     float norm = length(blendedDQ[0]);

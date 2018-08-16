@@ -50,17 +50,20 @@ class DualQuat(var q0: Quaternion, var q1: Quaternion) : Vector(), ReadableVecto
     }
 
     companion object {
-        fun fromQuatAndTranslation(q: Quaternion, t: Vector3f) = DualQuat(q, mulPure(q, t).scale(0.5f) as Quaternion)
+        fun fromQuatAndTranslation(q: Quaternion, t: Vector3f) =
+                DualQuat(Quaternion(q.x, q.y, q.z, q.w), mulPure(q, t).scale(0.5f) as Quaternion)
 
         fun fromMatrixAndTranslation(basis: Matrix3f, t: Vector3f): DualQuat {
             val q = Quaternion()
             q.setFromMatrix(basis)
+            q.normalise()
             return fromQuatAndTranslation(q, t)
         }
 
         fun fromMatrix(matrix: Matrix4f): DualQuat {
             val q = Quaternion()
             q.setFromMatrix(matrix)
+            q.normalise()
             val t = Vector3f(matrix.m30, matrix.m31, matrix.m32)
             return fromQuatAndTranslation(q, t)
         }

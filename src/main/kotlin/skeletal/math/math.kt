@@ -31,9 +31,7 @@ fun transformPoint(q: Quaternion, v: Vector3f, dest: Vector3f?): Vector3f {
 
 @Deprecated("Replace to method")
 fun buildTransform(q: Quaternion, s: Vector3f, t: Vector3f): Matrix4f {
-    val mat = Matrix4f()
-    mat.scale(s)
-
+    val rotation = Matrix4f()
     val xx = q.x * q.x
     val xy = q.x * q.y
     val xz = q.x * q.z
@@ -44,16 +42,18 @@ fun buildTransform(q: Quaternion, s: Vector3f, t: Vector3f): Matrix4f {
     val zz = q.z * q.z
     val zw = q.z * q.w
 
-    mat.m00 = 1 - 2 * (yy + zz)
-    mat.m10 = 2 * (xy - zw)
-    mat.m20 = 2 * (xz + yw)
-    mat.m01 = 2 * (xy + zw)
-    mat.m11 = 1 - 2 * (xx + zz)
-    mat.m21 = 2 * (yz - xw)
-    mat.m02 = 2 * (xz - yw)
-    mat.m12 = 2 * (yz + xw)
-    mat.m22 = 1 - 2 * (xx + yy)
+    rotation.m00 = 1 - 2 * (yy + zz)
+    rotation.m10 = 2 * (xy - zw)
+    rotation.m20 = 2 * (xz + yw)
+    rotation.m01 = 2 * (xy + zw)
+    rotation.m11 = 1 - 2 * (xx + zz)
+    rotation.m21 = 2 * (yz - xw)
+    rotation.m02 = 2 * (xz - yw)
+    rotation.m12 = 2 * (yz + xw)
+    rotation.m22 = 1 - 2 * (xx + yy)
 
-    mat.translate(t)
-    return mat
+    val translate = Matrix4f().translate(t)
+    val scale = Matrix4f().scale(s)
+
+    return Matrix4f.mul(Matrix4f.mul(translate, rotation, null), scale, null)
 }
