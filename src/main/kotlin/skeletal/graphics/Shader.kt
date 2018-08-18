@@ -5,7 +5,7 @@ package skeletal.graphics
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL20.*
 
-class Shader(val program: Int, val shaders: IntArray) : Cleanable {
+class Shader(val program: Int, private val shaders: IntArray) : Cleanable {
 
     override fun free() {
         shaders.forEach {
@@ -15,8 +15,8 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
         glDeleteProgram(program)
     }
 
-    inline fun bind() = glUseProgram(program)
-    inline fun unbind() = glUseProgram(0)
+    fun bind() = glUseProgram(program)
+    fun unbind() = glUseProgram(0)
 
     inline fun use(action: Shader.() -> Unit) {
         bind()
@@ -27,10 +27,6 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
     fun getUniformLocations(vararg names: String) =
             IntArray(names.size) { glGetUniformLocation(program, names[it]) }
 
-    inline fun bindAttributes(vararg attributes: Pair<Int, String>) {
-        attributes.forEach { (index, name) -> glBindAttribLocation(program, index, name) }
-    }
-
     companion object {
 
         fun createShader(type: Int, srcCode: String): Int {
@@ -38,7 +34,7 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
             glShaderSource(shader, srcCode)
             glCompileShader(shader)
             if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL11.GL_FALSE)
-                println(glGetShaderInfoLog(shader, GL_INFO_LOG_LENGTH))
+                error(glGetShaderInfoLog(shader, GL_INFO_LOG_LENGTH))
             return shader
         }
 
@@ -48,7 +44,7 @@ class Shader(val program: Int, val shaders: IntArray) : Cleanable {
             glLinkProgram(program)
             glValidateProgram(program)
             if (glGetProgrami(program, GL_VALIDATE_STATUS) == GL11.GL_FALSE)
-                println(glGetProgramInfoLog(program, GL_INFO_LOG_LENGTH))
+                error(glGetProgramInfoLog(program, GL_INFO_LOG_LENGTH))
             return Shader(program, shaders)
         }
     }

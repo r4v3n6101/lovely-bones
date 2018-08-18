@@ -19,31 +19,36 @@ import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Vector3f
 import skeletal.model.animated.AnimatedModel
 import skeletal.model.animated.Animator
-import skeletal.model.loader.impl.IQMLoader
+import skeletal.model.loader.IQMLoader
 
 
 @Mod(modid = "skeletal_anim")
 class ModColladaModel {
 
     val model: AnimatedModel by lazy {
-        AdvancedModelLoader.loadModel(ResourceLocation(DOMEN, "models/model.iqm")) as AnimatedModel
+        AdvancedModelLoader.loadModel(ResourceLocation(DOMAIN, "models/model.iqm")) as AnimatedModel
     }
 
     val uniformLocations: IntArray by lazy {
         ANIMATED_MODEL_SHADER.getUniformLocations(
-                "textureSampler", "lightmapSampler", "lightmapTexcoord", "model", "inverseTransposeModel", "transforms"
+                "textureSampler",
+                "lightmapSampler",
+                "lightmapTexcoord",
+                "model",
+                "inverseTransposeModel",
+                "transforms"
         )
     }
 
     val animator by lazy {
-        val an = Animator()
-        an.playAnimation(model.animations.values.first())
+        val an = Animator(model)
+        an.animations[model.animations.keys.first()] = 1f
         an
     }
 
     @Mod.EventHandler
     fun preInit(event: FMLPreInitializationEvent) {
-        AdvancedModelLoader.registerModelHandler(MinecraftModelLoader(arrayOf("iqm"), "IQM Model", IQMLoader))
+        AdvancedModelLoader.registerModelHandler(IQMLoader)
         // Test
         if (event.side == Side.CLIENT) {
             MinecraftForge.EVENT_BUS.register(this)
@@ -55,7 +60,8 @@ class ModColladaModel {
     @SubscribeEvent
     fun worldRenderer(event: RenderWorldLastEvent) {
         updateMatricesUniform()
-        animator.update(event.partialTicks)
+        animator.update(event.partialTicks * 5)
+
         skeletonCacheBuf.clear()
         animator.storeSkeletonData(skeletonCacheBuf)
         skeletonCacheBuf.flip()
@@ -88,8 +94,8 @@ class ModColladaModel {
                                             (5 + 7 * i) - renderPosZ.toFloat()
                                     )
                             )
-                            //.rotate(45.5f, Vector3f(-1f, 0f, 0f))
-                            //.scale(Vector3f(0.03f, 0.03f, 0.03f))
+                            .rotate(45.5f, Vector3f(-1f, 0f, 0f))
+                            .scale(Vector3f(0.05f, 0.05f, 0.05f))
                             .store(modelBuf)
                     modelBuf.flip()
                     glUniformMatrix4(uniformLocations[3], false, modelBuf)
@@ -103,7 +109,7 @@ class ModColladaModel {
                 }
             }
         }
-        glFrontFace(GL_CCW)
+        glFrontFace(GL_CCW) // TODO : By default, change in model
         minecraft.entityRenderer.disableLightmap(666.666)
     }
 

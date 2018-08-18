@@ -14,6 +14,6 @@ uniform mat3 inverseTransposeModel = mat3(1.0);
 
 void main(void) {
     passed_texcoord = texcoord;
-    passed_normal = inverseTransposeModel * normal;
+    passed_normal = normalize(inverseTransposeModel * normal);
     gl_Position = projection * modelview * model * vec4(position, 1.0);
 }

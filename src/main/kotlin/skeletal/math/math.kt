@@ -12,26 +12,8 @@ fun mulPure(lhs: Quaternion, rhs: Vector3f) = Quaternion(
         -lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z
 )
 
-fun transformPoint(q: Quaternion, v: Vector3f, dest: Vector3f?): Vector3f {
-    val out = dest ?: Vector3f()
-    val qvdot = q.x * v.x + q.y * v.y + q.z * v.z
-    val a = q.w * q.w - (q.x * q.x + q.y * q.y + q.z * q.z)
-
-    val crossX = q.y * v.z - q.z * v.y
-    val crossY = v.x * q.z - v.z * q.x
-    val crossZ = q.x * v.y - q.y * v.x
-
-    out.set(
-            2f * (qvdot * q.x + q.w * crossX) + a * v.x,
-            2f * (qvdot * q.y + q.w * crossY) + a * v.y,
-            2f * (qvdot * q.z + q.w * crossZ) + a * v.z
-    )
-    return out
-}
-
-@Deprecated("Replace to method")
 fun buildTransform(q: Quaternion, s: Vector3f, t: Vector3f): Matrix4f {
-    val rotation = Matrix4f()
+    val out = Matrix4f()
     val xx = q.x * q.x
     val xy = q.x * q.y
     val xz = q.x * q.z
@@ -42,18 +24,22 @@ fun buildTransform(q: Quaternion, s: Vector3f, t: Vector3f): Matrix4f {
     val zz = q.z * q.z
     val zw = q.z * q.w
 
-    rotation.m00 = 1 - 2 * (yy + zz)
-    rotation.m10 = 2 * (xy - zw)
-    rotation.m20 = 2 * (xz + yw)
-    rotation.m01 = 2 * (xy + zw)
-    rotation.m11 = 1 - 2 * (xx + zz)
-    rotation.m21 = 2 * (yz - xw)
-    rotation.m02 = 2 * (xz - yw)
-    rotation.m12 = 2 * (yz + xw)
-    rotation.m22 = 1 - 2 * (xx + yy)
+    out.m00 = (1 - 2 * (yy + zz)) * s.x
+    out.m10 = 2 * (xy - zw) * s.y
+    out.m20 = 2 * (xz + yw) * s.z
 
-    val translate = Matrix4f().translate(t)
-    val scale = Matrix4f().scale(s)
+    out.m01 = 2 * (xy + zw) * s.x
+    out.m11 = (1 - 2 * (xx + zz)) * s.y
+    out.m21 = 2 * (yz - xw) * s.z
 
-    return Matrix4f.mul(Matrix4f.mul(translate, rotation, null), scale, null)
+    out.m02 = 2 * (xz - yw) * s.x
+    out.m12 = 2 * (yz + xw) * s.y
+    out.m22 = (1 - 2 * (xx + yy)) * s.z
+
+    out.m30 = t.x
+    out.m31 = t.y
+    out.m32 = t.z
+    out.m33 = 1f
+
+    return out
 }

@@ -9,5 +9,5 @@ import java.io.InputStream
 val minecraft: Minecraft
     get() = Minecraft.getMinecraft()
 
-val ResourceLocation.inputStream: InputStream
-    get() = minecraft.resourceManager.getResource(this).inputStream
+val ResourceLocation.inputStream: InputStream?
+    get() = minecraft.resourceManager.getResource(this)?.inputStream

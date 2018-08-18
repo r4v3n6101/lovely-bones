@@ -6,19 +6,13 @@ import org.lwjgl.opengl.GL15.glDeleteBuffers
 import org.lwjgl.opengl.GL30.glBindVertexArray
 import org.lwjgl.opengl.GL30.glDeleteVertexArrays
 
-class VertexArrayObject(val id: Int, val vbos: IntArray) : Cleanable {
+class VertexArrayObject(private val id: Int, private val vbos: IntArray) : GLObject {
 
     override fun free() {
         vbos.forEach(::glDeleteBuffers)
         glDeleteVertexArrays(id)
     }
 
-    inline fun bind() = glBindVertexArray(id)
-    inline fun unbind() = glBindVertexArray(0)
-
-    inline fun use(action: () -> Unit) {
-        bind()
-        action()
-        unbind()
-    }
+    override fun bind() = glBindVertexArray(id)
+    override fun unbind() = glBindVertexArray(0)
 }

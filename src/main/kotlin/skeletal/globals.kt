@@ -16,7 +16,7 @@ import java.nio.FloatBuffer
 
 // TODO : Replace some fields to another classes
 
-const val DOMEN = "skeletal"
+const val DOMAIN = "skeletal"
 const val MAX_BONES = 128
 private val projectionBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
 private val modelviewBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
@@ -40,9 +40,9 @@ fun updateMatricesUniform() {
 val MATRICES_UNIFORM_BLOCK: UniformBufferObject by lazy { UniformBufferObject.createUBO(0, 128) }
 
 val STATIC_MODEL_SHADER: Shader by lazy {
-    val vertexText = ResourceLocation(DOMEN, "shaders/static_vertex.glsl").inputStream.bufferedReader()
+    val vertexText = ResourceLocation(DOMAIN, "shaders/static_vertex.glsl").inputStream!!.bufferedReader()
             .use(BufferedReader::readText)
-    val fragText = ResourceLocation(DOMEN, "shaders/model_fragment.glsl").inputStream.bufferedReader()
+    val fragText = ResourceLocation(DOMAIN, "shaders/model_fragment.glsl").inputStream!!.bufferedReader()
             .use(BufferedReader::readText)
 
     val vertexShader = createShader(GL_VERTEX_SHADER, vertexText)
@@ -58,9 +58,9 @@ val skeletonCacheBuf: FloatBuffer by lazy {
 }
 
 val ANIMATED_MODEL_SHADER: Shader by lazy {
-    val vertexText = ResourceLocation(DOMEN, "shaders/animated_vertex.glsl").inputStream.bufferedReader()
+    val vertexText = ResourceLocation(DOMAIN, "shaders/animated_vertex.glsl").inputStream!!.bufferedReader()
             .use(BufferedReader::readText).replace("{MAX_BONES}", "$MAX_BONES")
-    val fragText = ResourceLocation(DOMEN, "shaders/model_fragment.glsl").inputStream.bufferedReader()
+    val fragText = ResourceLocation(DOMAIN, "shaders/model_fragment.glsl").inputStream!!.bufferedReader()
             .use(BufferedReader::readText) // TODO : Reduce repetition
 
     val vertexShader = createShader(GL_VERTEX_SHADER, vertexText)

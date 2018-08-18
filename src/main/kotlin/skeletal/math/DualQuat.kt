@@ -6,7 +6,10 @@ import java.nio.FloatBuffer
 /**
  * Represent dual quaternion q0 + q1 * e, where's e is epsilon and e^2 == 0
  */
-class DualQuat(var q0: Quaternion, var q1: Quaternion) : Vector(), ReadableVector {
+class DualQuat(
+        val q0: Quaternion = Quaternion(),
+        val q1: Quaternion = Quaternion(0f, 0f, 0f, 0f)
+) : Vector(), ReadableVector {
 
     /**
      * Scale each quat
@@ -40,6 +43,8 @@ class DualQuat(var q0: Quaternion, var q1: Quaternion) : Vector(), ReadableVecto
         return this
     }
 
+    fun dot(dq: DualQuat) = Quaternion.dot(q0, dq.q0)
+
     /**
      * Load q0 & q1 sequently, q0 is first
      */
@@ -51,7 +56,7 @@ class DualQuat(var q0: Quaternion, var q1: Quaternion) : Vector(), ReadableVecto
 
     companion object {
         fun fromQuatAndTranslation(q: Quaternion, t: Vector3f) =
-                DualQuat(Quaternion(q.x, q.y, q.z, q.w), mulPure(q, t).scale(0.5f) as Quaternion)
+                DualQuat(Quaternion(q), mulPure(q, t).scale(0.5f) as Quaternion)
 
         fun fromMatrixAndTranslation(basis: Matrix3f, t: Vector3f): DualQuat {
             val q = Quaternion()

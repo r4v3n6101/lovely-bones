@@ -1,14 +1,14 @@
 package skeletal.model
 
 import net.minecraft.client.renderer.texture.TextureUtil.missingTexture
-import net.minecraft.util.AxisAlignedBB
 import net.minecraftforge.client.model.IModelCustom
 import org.lwjgl.opengl.GL11.*
 import skeletal.graphics.Cleanable
 import skeletal.graphics.VertexArrayObject
 
 open class StaticModel(
-        val vao: VertexArrayObject, val meshes: Map<String, Mesh>, val bound: AxisAlignedBB? = null
+        private val vao: VertexArrayObject,
+        private val meshes: Map<String, Mesh>
 ) : IModelCustom, Cleanable by vao {
 
     override fun getType() = "StaticModel"
@@ -42,7 +42,7 @@ open class StaticModel(
     }
 
     private fun renderMesh(mesh: Mesh) {
-        glBindTexture(GL_TEXTURE_2D, mesh.material ?: missingTexture.glTextureId)
+        glBindTexture(GL_TEXTURE_2D, mesh.texture ?: missingTexture.glTextureId)
         glDrawElements(
                 GL_TRIANGLES,
                 mesh.indices,

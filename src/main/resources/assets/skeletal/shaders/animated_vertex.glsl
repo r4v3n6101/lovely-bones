@@ -27,7 +27,7 @@ void main(void) {
     mat2x4 blendedDQ = getBlendedDualQuat(indices, weights);
 
     passed_texcoord = texcoord;
-    passed_normal = inverseTransposeModel * rotatePoint(normal, blendedDQ[0]);
+    passed_normal = normalize(inverseTransposeModel * rotatePoint(normal, blendedDQ[0]));
 
     vec3 outPos = transformPoint(position, blendedDQ[0], blendedDQ[1]);
     gl_Position = projection * modelview * model * vec4(outPos, 1.0);
@@ -46,6 +46,10 @@ mat2x4 getBlendedDualQuat(vec4 indices, vec4 weights) {
     mat2x4 dq1 = transforms[int(indices.y)];
     mat2x4 dq2 = transforms[int(indices.z)];
     mat2x4 dq3 = transforms[int(indices.w)];
+
+    if (dot(dq0[0], dq1[0]) < 0.0) weights.y *= -1.0;
+    if (dot(dq0[0], dq2[0]) < 0.0) weights.z *= -1.0;
+    if (dot(dq0[0], dq3[0]) < 0.0) weights.w *= -1.0;
 
     mat2x4 blendedDQ = dq0 * weights.x + dq1 * weights.y + dq2 * weights.z + dq3 * weights.w;
 

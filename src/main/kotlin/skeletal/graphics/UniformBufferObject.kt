@@ -5,21 +5,15 @@ import org.lwjgl.opengl.GL30.glBindBufferBase
 import org.lwjgl.opengl.GL31
 import org.lwjgl.opengl.GL31.*
 
-class UniformBufferObject(val vboId: Int, val bindingPoint: Int) : Cleanable {
+class UniformBufferObject(private val vboId: Int, private val bindingPoint: Int) : GLObject {
 
     override fun free() = glDeleteBuffers(vboId)
 
+    override fun bind() = glBindBuffer(GL_UNIFORM_BUFFER, vboId)
+    override fun unbind() = glBindBuffer(GL_UNIFORM_BUFFER, 0)
+
     fun connectWithShader(program: Shader, name: String) =
             glUniformBlockBinding(program.program, glGetUniformBlockIndex(program.program, name), bindingPoint)
-
-    fun bind() = glBindBuffer(GL_UNIFORM_BUFFER, vboId)
-    fun unbind() = glBindBuffer(GL_UNIFORM_BUFFER, 0)
-
-    inline fun use(action: () -> Unit) {
-        bind()
-        action()
-        unbind()
-    }
 
     companion object {
         fun createUBO(bindingPoint: Int, size: Long): UniformBufferObject {
