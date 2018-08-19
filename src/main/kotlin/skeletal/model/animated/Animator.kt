@@ -1,7 +1,7 @@
 package skeletal.model.animated
 
 import org.lwjgl.util.vector.Quaternion
-import skeletal.MAX_BONES
+import skeletal.ModClass
 import skeletal.math.DualQuat
 import java.nio.FloatBuffer
 import kotlin.math.floor
@@ -27,7 +27,7 @@ class Animator(val model: AnimatedModel) {
     fun storeSkeletonData(buf: FloatBuffer) {
         // 0f required to correct sum of dual quats. If no anims, then w = 1f
         val defaultW = if (animations.isEmpty()) 1f else 0f
-        val tmpArray = Array(MAX_BONES) { DualQuat(Quaternion(0f, 0f, 0f, defaultW)) }
+        val tmpArray = Array(ModClass.MAX_BONES) { DualQuat(Quaternion(0f, 0f, 0f, defaultW)) }
         animations.forEach { (name, weight) ->
             val anim = model.animations[name]!!
             val timestep = time / anim.framerate

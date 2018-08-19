@@ -11,122 +11,141 @@ import net.minecraftforge.client.event.RenderWorldLastEvent
 import net.minecraftforge.client.model.AdvancedModelLoader
 import net.minecraftforge.common.MinecraftForge
 import org.lwjgl.BufferUtils
-import org.lwjgl.opengl.GL11.*
+import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL15
 import org.lwjgl.opengl.GL20.*
 import org.lwjgl.opengl.GL21.glUniformMatrix2x4
-import org.lwjgl.util.vector.Matrix3f
-import org.lwjgl.util.vector.Matrix4f
-import org.lwjgl.util.vector.Vector3f
-import skeletal.model.animated.AnimatedModel
-import skeletal.model.animated.Animator
+import org.lwjgl.opengl.GL31
+import skeletal.adapted.AdaptedModel
+import skeletal.adapted.RenderType
+import skeletal.graphics.Shader
+import skeletal.graphics.UniformBufferObject
 import skeletal.model.loader.IQMLoader
+import java.io.BufferedReader
+import java.nio.FloatBuffer
 
 
 @Mod(modid = "skeletal_anim")
-class ModColladaModel {
-
-    val model: AnimatedModel by lazy {
-        AdvancedModelLoader.loadModel(ResourceLocation(DOMAIN, "models/model.iqm")) as AnimatedModel
-    }
-
-    val uniformLocations: IntArray by lazy {
-        ANIMATED_MODEL_SHADER.getUniformLocations(
-                "textureSampler",
-                "lightmapSampler",
-                "lightmapTexcoord",
-                "model",
-                "inverseTransposeModel",
-                "transforms"
-        )
-    }
-
-    val animator by lazy {
-        val an = Animator(model)
-        an.animations[model.animations.keys.first()] = 1f
-        an
-    }
+class ModClass {
 
     @Mod.EventHandler
     fun preInit(event: FMLPreInitializationEvent) {
         AdvancedModelLoader.registerModelHandler(IQMLoader)
-        // Test
         if (event.side == Side.CLIENT) {
             MinecraftForge.EVENT_BUS.register(this)
             FMLCommonHandler.instance().bus().register(this)
         }
     }
 
-    // Test
     @SubscribeEvent
     fun worldRenderer(event: RenderWorldLastEvent) {
         updateMatricesUniform()
-        animator.update(event.partialTicks * 5)
-
-        skeletonCacheBuf.clear()
-        animator.storeSkeletonData(skeletonCacheBuf)
-        skeletonCacheBuf.flip()
-
-        val light = minecraft.theWorld.getLightBrightnessForSkyBlocks(
-                renderPosX.toInt(), renderPosY.toInt(), renderPosZ.toInt(), 0
-        ).toFloat()
-
-        glFrontFace(GL_CW)
         minecraft.entityRenderer.enableLightmap(666.666)
-
         ANIMATED_MODEL_SHADER.use {
-            glUniform1i(uniformLocations[0], 0)
-            glUniform1i(uniformLocations[1], 1)
-
-            val lightU = (light % 65536 + 8f) / 256
-            val lightV = (light / 65536 + 8f) / 256
-            glUniform2f(uniformLocations[2], lightU, lightV)
-
-            glUniformMatrix2x4(uniformLocations[5], false, skeletonCacheBuf)
-            repeat(1) { i ->
-                repeat(1) { j ->
-                    val modelBuf = BufferUtils.createFloatBuffer(16)
-                    val modelMat = Matrix4f()
-                    modelMat
-                            .translate(
-                                    Vector3f(
-                                            (5 + 7 * j) - renderPosX.toFloat(),
-                                            4 - renderPosY.toFloat(),
-                                            (5 + 7 * i) - renderPosZ.toFloat()
-                                    )
-                            )
-                            .rotate(45.5f, Vector3f(-1f, 0f, 0f))
-                            .scale(Vector3f(0.05f, 0.05f, 0.05f))
-                            .store(modelBuf)
-                    modelBuf.flip()
-                    glUniformMatrix4(uniformLocations[3], false, modelBuf)
-
-                    val itmBuf = BufferUtils.createFloatBuffer(9) // Ugliest code ever
-                    makeInverseTranspose(modelMat).store(itmBuf)
-                    itmBuf.flip()
-                    glUniformMatrix3(uniformLocations[4], false, itmBuf)
-
-                    model.renderAll()
-                }
+            modelsToRender.forEach { (model, renderType) ->
+                renderSkeletalModel(model, renderType, event.partialTicks)
             }
         }
-        glFrontFace(GL_CCW) // TODO : By default, change in model
         minecraft.entityRenderer.disableLightmap(666.666)
+
+        modelsToRender.clear() // Reset stack after rendering
     }
 
-    private fun makeInverseTranspose(modelMat: Matrix4f): Matrix3f {
-        val mat = Matrix3f()
-        mat.m00 = modelMat.m00
-        mat.m01 = modelMat.m10
-        mat.m02 = modelMat.m20
+    private fun renderSkeletalModel(model: AdaptedModel, renderType: RenderType, part: Float) {
+        with(model) {
+            updateMatrices(renderPosX.toFloat(), renderPosY.toFloat(), renderPosZ.toFloat())
 
-        mat.m10 = modelMat.m01
-        mat.m11 = modelMat.m11
-        mat.m12 = modelMat.m21
+            animator.update(part * 5) // TODO : Time
+            skeletonCacheBuf.clear()
+            animator.storeSkeletonData(skeletonCacheBuf)
+            skeletonCacheBuf.flip()
 
-        mat.m20 = modelMat.m02
-        mat.m21 = modelMat.m12
-        mat.m22 = modelMat.m22
-        mat.invert()
-        return mat
+            val light = minecraft.theWorld.getLightBrightnessForSkyBlocks(
+                    position.x.toInt(), position.y.toInt(), position.z.toInt(), 0
+            ).toFloat()
+            val lightU = (light % 65536 + 8f) / 256
+            val lightV = (light / 65536 + 8f) / 256
+
+            modelBuf.clear()
+            modelMatrix.store(modelBuf)
+            modelBuf.flip()
+
+            inverseTransposeBuf.clear()
+            inverseTransposeMatrix.store(inverseTransposeBuf)
+            inverseTransposeBuf.flip()
+
+            glUniform1i(animatedShaderUniforms[0], 0)
+            glUniform1i(animatedShaderUniforms[1], 1)
+            glUniform2f(animatedShaderUniforms[2], lightU, lightV)
+            glUniformMatrix4(animatedShaderUniforms[3], false, modelBuf)
+            glUniformMatrix3(animatedShaderUniforms[4], false, inverseTransposeBuf)
+            glUniformMatrix2x4(animatedShaderUniforms[5], false, skeletonCacheBuf)
+
+            when (renderType) {
+                RenderType.All -> animatedModel.renderAll()
+                is RenderType.Only -> animatedModel.renderOnly(*renderType.names)
+                is RenderType.Part -> animatedModel.renderPart(renderType.name)
+                is RenderType.Except -> animatedModel.renderAllExcept(*renderType.names)
+            }
+        }
+    }
+
+    companion object {
+        // AdaptedModel data
+        val modelsToRender: ArrayList<Pair<AdaptedModel, RenderType>> = ArrayList(1024)
+        private val modelBuf = BufferUtils.createFloatBuffer(16)
+        private val inverseTransposeBuf = BufferUtils.createFloatBuffer(9)
+        private val skeletonCacheBuf: FloatBuffer by lazy {
+            BufferUtils.createFloatBuffer(MAX_BONES * 8) // every bone is 8 floats
+        }
+
+        // Shaders data
+        val animatedShaderUniforms: IntArray by lazy {
+            ANIMATED_MODEL_SHADER.getUniformLocations(
+                    "textureSampler",
+                    "lightmapSampler",
+                    "lightmapTexcoord",
+                    "model",
+                    "inverseTransposeModel",
+                    "transforms"
+            )
+        }
+        val ANIMATED_MODEL_SHADER: Shader by lazy {
+            val vertexText = ResourceLocation(DOMAIN, "shaders/animated_vertex.glsl").inputStream!!.bufferedReader()
+                    .use(BufferedReader::readText).replace("{MAX_BONES}", "$MAX_BONES")
+            val fragText = ResourceLocation(DOMAIN, "shaders/model_fragment.glsl").inputStream!!.bufferedReader()
+                    .use(BufferedReader::readText)
+
+            val vertexShader = Shader.createShader(GL_VERTEX_SHADER, vertexText)
+            val fragShader = Shader.createShader(GL_FRAGMENT_SHADER, fragText)
+
+            val shader = Shader.createProgram(vertexShader, fragShader)
+            MATRICES_UNIFORM_BLOCK.connectWithShader(shader, "Matrices")
+            shader
+        }
+
+        // UniformBuffer data
+        private val projectionBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
+        private val modelviewBuf: FloatBuffer = BufferUtils.createFloatBuffer(16)
+        private val matricesBuf: FloatBuffer = BufferUtils.createFloatBuffer(32)
+        val MATRICES_UNIFORM_BLOCK: UniformBufferObject by lazy { UniformBufferObject.createUBO(0, 128) }
+
+        fun updateMatricesUniform() {
+            projectionBuf.clear()
+            modelviewBuf.clear()
+
+            GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, projectionBuf)
+            GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, modelviewBuf)
+
+            matricesBuf.clear()
+            repeat(projectionBuf.capacity()) { matricesBuf.put(projectionBuf.get()) }
+            repeat(modelviewBuf.capacity()) { matricesBuf.put(modelviewBuf.get()) }
+            matricesBuf.flip()
+
+            MATRICES_UNIFORM_BLOCK.use { GL15.glBufferSubData(GL31.GL_UNIFORM_BUFFER, 0, matricesBuf) }
+        }
+
+        val DOMAIN: String = System.getProperty("skeletal.domain", "skeletal")
+        val MAX_BONES: Int = System.getProperty("skeletal.bonesNum", "128").toInt()
     }
 }

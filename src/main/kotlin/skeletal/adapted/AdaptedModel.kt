@@ -1,32 +1,31 @@
-package skeletal
+package skeletal.adapted
 
-import net.minecraftforge.client.model.IModelCustom
 import org.lwjgl.util.vector.Matrix3f
 import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Vector3f
+import skeletal.ModClass
 import skeletal.model.animated.AnimatedModel
 import skeletal.model.animated.Animator
 
 class AdaptedModel(
-        private val animatedModel: AnimatedModel,
-        val position: Vector3f,
-        val angles: Vector3f, // Euler angles
-        val scale: Vector3f
-) : IModelCustom by animatedModel {
-    private val animator = Animator(animatedModel)
-    private var modelMatrix: Matrix4f = Matrix4f()
-    private var inverseTransposeMatrix: Matrix3f = Matrix3f()
+        val animatedModel: AnimatedModel,
+        val position: Vector3f = Vector3f(),
+        val angles: Vector3f = Vector3f(), // Euler angles
+        val scale: Vector3f = Vector3f(1f, 1f, 1f)
+) {
+    val animator = Animator(animatedModel)
+    val modelMatrix: Matrix4f = Matrix4f()
+    val inverseTransposeMatrix: Matrix3f = Matrix3f()
 
-    init {
-        updateMatrices() // First update
-    }
-
-    private fun updateMatrices() {
-        modelMatrix.scale(scale)
-        modelMatrix.rotate(angles.x, Vector3f(1f, 0f, 0f))
-        modelMatrix.rotate(angles.y, Vector3f(0f, 1f, 0f))
-        modelMatrix.rotate(angles.z, Vector3f(0f, 0f, 1f))
-        modelMatrix.translate(position)
+    fun updateMatrices(renderPosX: Float, renderPosY: Float, renderPosZ: Float) {
+        val tmp = Vector3f(renderPosX, renderPosY, renderPosZ)
+        val trans = Matrix4f().translate(Vector3f.sub(position, tmp, tmp))
+        val scale = Matrix4f().scale(scale)
+        val rot = Matrix4f()
+                .rotate(angles.x, Vector3f(1f, 0f, 0f))
+                .rotate(angles.y, Vector3f(0f, 1f, 0f))
+                .rotate(angles.z, Vector3f(0f, 0f, 1f))
+        Matrix4f.mul(trans, Matrix4f.mul(rot, scale, modelMatrix), modelMatrix)
 
         inverseTransposeMatrix.m00 = modelMatrix.m00
         inverseTransposeMatrix.m01 = modelMatrix.m10
@@ -43,27 +42,14 @@ class AdaptedModel(
 
     fun setPosition(x: Float, y: Float, z: Float) {
         position.set(x, y, z)
-        updateMatrices()
     }
 
     fun setAngles(x: Float, y: Float, z: Float) {
         angles.set(x, y, z)
-        updateMatrices()
     }
 
     fun setScale(x: Float, y: Float, z: Float) {
         scale.set(x, y, z)
-        updateMatrices()
-    }
-
-    /**
-     * Use instead setPosition & setRotation & setScale code to reduce matrices refresh
-     */
-    fun setTransform(pX: Float, pY: Float, pZ: Float, rX: Float, rY: Float, rZ: Float, sX: Float, sY: Float, sZ: Float) {
-        position.set(pX, pY, pZ)
-        angles.set(rX, rY, rZ)
-        scale.set(sX, sY, sZ)
-        updateMatrices()
     }
 
     fun play(vararg anims: Pair<String, Float>) {
@@ -87,9 +73,14 @@ class AdaptedModel(
         animator.animations.clear()
     }
 
-    fun resetTime() {
+    fun resetTime() { // TODO
         animator.resetTime()
     }
 
-    // TODO : World position is difference between render pos and etc
+    /**
+     * Add model to render stack
+     */
+    fun render(type: RenderType) {
+        ModClass.modelsToRender.add(this to type)
+    }
 }

@@ -4,8 +4,6 @@ import net.minecraft.client.Minecraft
 import net.minecraft.util.ResourceLocation
 import java.io.InputStream
 
-// TODO : New name to file
-
 val minecraft: Minecraft
     get() = Minecraft.getMinecraft()
 

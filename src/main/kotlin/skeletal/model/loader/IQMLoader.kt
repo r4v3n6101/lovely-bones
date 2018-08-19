@@ -12,7 +12,7 @@ import org.lwjgl.opengl.GL30.*
 import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
-import skeletal.DOMAIN
+import skeletal.ModClass
 import skeletal.graphics.VertexArrayObject
 import skeletal.inputStream
 import skeletal.math.DualQuat
@@ -136,7 +136,7 @@ object IQMLoader : IModelCustomLoader {
         repeat(hdr.vertexarraysNum) {
             vbos[it] = readVertexArrayToVBO(buf, hdr.verticesNum)
         }
-        vbos[vbos.size - 1] = readIndicesToVBO(buf, hdr.trianglesOffset, hdr.trianglesNum * 3)
+        vbos[vbos.size - 1] = readIndicesToVBO(buf, hdr.trianglesOffset, hdr.trianglesNum)
         glBindVertexArray(0)
         return VertexArrayObject(vaoId, vbos)
     }
@@ -227,17 +227,24 @@ object IQMLoader : IModelCustomLoader {
     }
 
     /**
-     * Read indices from list of iqmtriangles directly to VBO. VBO keeps binded
+     * Read triangles from list of iqmtriangles directly to VBO. VBO keeps binded
      * @param buf iqm file byte buffer. Buffer's position doesn't matter
      * @param offset offset to beginning of iqmtriangles' list
-     * @param indices ammount of indices which equals num_triangles * 3
+     * @param triangles number of triangles
      * @return id of IBO
      */
-    private fun readIndicesToVBO(buf: ByteBuffer, offset: Int, indices: Int): Int {
+    private fun readIndicesToVBO(buf: ByteBuffer, offset: Int, triangles: Int): Int {
         buf.position(offset)
 
-        val indicesBuf = BufferUtils.createIntBuffer(indices)
-        repeat(indices) { indicesBuf.put(buf.int) }
+        val indicesBuf = BufferUtils.createIntBuffer(triangles * 3)
+        repeat(triangles) {
+            val i1 = buf.int
+            val i2 = buf.int
+            val i3 = buf.int
+            indicesBuf.put(i3)
+            indicesBuf.put(i2)
+            indicesBuf.put(i1) // Add in reverse order thus vertices order is CCW
+        }
         indicesBuf.flip()
 
         val vboId = glGenBuffers()
@@ -263,9 +270,9 @@ object IQMLoader : IModelCustomLoader {
 
     private fun loadTexture(material: String) =
             if (material.isNotEmpty()) {
-                val path = ResourceLocation(DOMAIN, "textures/$material.png")
+                val path = ResourceLocation(ModClass.DOMAIN, "textures/$material.png")
                 val texture = SimpleTexture(path)
-                println("Trying to load: \"${path.resourcePath}\"")
+                println("Trying to load: $path")
                 if (minecraft.textureManager.loadTexture(path, texture))
                     texture.glTextureId
                 else
