@@ -4,28 +4,31 @@ import org.lwjgl.util.vector.Matrix3f
 import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Vector3f
 import skeletal.ModClass
+import skeletal.animator.AnimationItem
+import skeletal.animator.Animator
 import skeletal.model.animated.AnimatedModel
-import skeletal.model.animated.Animator
 
 class AdaptedModel(
         val animatedModel: AnimatedModel,
         val position: Vector3f = Vector3f(),
-        val angles: Vector3f = Vector3f(), // Euler angles
+        val angles: Vector3f = Vector3f(), // Euler angles, in radians
         val scale: Vector3f = Vector3f(1f, 1f, 1f)
 ) {
-    val animator = Animator(animatedModel)
+    val animator = Animator(animatedModel.skeleton.size)
     val modelMatrix: Matrix4f = Matrix4f()
     val inverseTransposeMatrix: Matrix3f = Matrix3f()
 
     fun updateMatrices(renderPosX: Float, renderPosY: Float, renderPosZ: Float) {
-        val tmp = Vector3f(renderPosX, renderPosY, renderPosZ)
-        val trans = Matrix4f().translate(Vector3f.sub(position, tmp, tmp))
-        val scale = Matrix4f().scale(scale)
-        val rot = Matrix4f()
+        modelMatrix.setIdentity()
+        modelMatrix
                 .rotate(angles.x, Vector3f(1f, 0f, 0f))
                 .rotate(angles.y, Vector3f(0f, 1f, 0f))
                 .rotate(angles.z, Vector3f(0f, 0f, 1f))
-        Matrix4f.mul(trans, Matrix4f.mul(rot, scale, modelMatrix), modelMatrix)
+        modelMatrix.scale(scale)
+        modelMatrix.m30 = position.x - renderPosX
+        modelMatrix.m31 = position.y - renderPosY
+        modelMatrix.m32 = position.z - renderPosZ
+        modelMatrix.m33 = 1f
 
         inverseTransposeMatrix.m00 = modelMatrix.m00
         inverseTransposeMatrix.m01 = modelMatrix.m10
@@ -52,30 +55,27 @@ class AdaptedModel(
         scale.set(x, y, z)
     }
 
-    fun play(vararg anims: Pair<String, Float>) {
-        animator.animations += anims
-    }
-
-    fun play(vararg anims: String) {
-        val averagedWeight = 1f / anims.size
-        anims.forEach { play(it, averagedWeight) }
-    }
-
     fun play(name: String, weight: Float) {
-        animator.animations[name] = weight
+        animator.animations[name] = AnimationItem(animatedModel.animations[name]!!, weight)
     }
 
-    fun stop(vararg anims: String) {
-        anims.forEach { animator.animations.remove(it) }
+    fun pause(name: String) {
+        animator.animations[name]!!.paused = true
+    }
+
+    fun resume(name: String) {
+        animator.animations[name]!!.paused = false
+    }
+
+    fun stop(anim: String) {
+        animator.animations.remove(anim)
     }
 
     fun stopAll() {
         animator.animations.clear()
     }
 
-    fun resetTime() { // TODO
-        animator.resetTime()
-    }
+    fun isPlaying(name: String) = name in animator.animations
 
     /**
      * Add model to render stack

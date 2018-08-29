@@ -1,5 +1,6 @@
 #version 330
 #define MAX_BONES {MAX_BONES}
+#define BONES 4
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec2 texcoord;
@@ -21,10 +22,17 @@ uniform mat2x4 transforms[MAX_BONES];
 
 vec3 rotatePoint(vec3 point, vec4 real);
 vec3 transformPoint(vec3 point, vec4 real, vec4 dual);
-mat2x4 getBlendedDualQuat(vec4 indices, vec4 weights);
 
 void main(void) {
-    mat2x4 blendedDQ = getBlendedDualQuat(indices, weights);
+    mat2x4 blendedDQ = mat2x4(0);
+    for (int i = 0; i < BONES; i++) {
+        mat2x4 dq = transforms[int(indices[i])];
+        float w = weights[i];
+
+        if (dot(blendedDQ[0], dq[0]) < 0.0) w *= -1.0;
+        blendedDQ += dq * w;
+    }
+    blendedDQ /= length(blendedDQ[0]);
 
     passed_texcoord = texcoord;
     passed_normal = normalize(inverseTransposeModel * rotatePoint(normal, blendedDQ[0]));
@@ -39,20 +47,4 @@ vec3 transformPoint(vec3 point, vec4 real, vec4 dual) {
 
 vec3 rotatePoint(vec3 point, vec4 real) {
     return point + 2 * cross(real.w * point + cross(point, real.xyz), real.xyz);
-}
-
-mat2x4 getBlendedDualQuat(vec4 indices, vec4 weights) {
-    mat2x4 dq0 = transforms[int(indices.x)];
-    mat2x4 dq1 = transforms[int(indices.y)];
-    mat2x4 dq2 = transforms[int(indices.z)];
-    mat2x4 dq3 = transforms[int(indices.w)];
-
-    if (dot(dq0[0], dq1[0]) < 0.0) weights.y *= -1.0;
-    if (dot(dq0[0], dq2[0]) < 0.0) weights.z *= -1.0;
-    if (dot(dq0[0], dq3[0]) < 0.0) weights.w *= -1.0;
-
-    mat2x4 blendedDQ = dq0 * weights.x + dq1 * weights.y + dq2 * weights.z + dq3 * weights.w;
-
-    float norm = length(blendedDQ[0]);
-    return blendedDQ / norm;
 }

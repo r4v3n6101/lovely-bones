@@ -35,7 +35,7 @@ open class StaticModel(
     }
 
     override fun renderAllExcept(vararg excludedGroupNames: String) {
-        val set = excludedGroupNames.toHashSet() // O(1) for check containment
+        val set = excludedGroupNames.toHashSet()
         vao.use {
             meshes.forEach { (name, mesh) -> if (name !in set) renderMesh(mesh) }
         }

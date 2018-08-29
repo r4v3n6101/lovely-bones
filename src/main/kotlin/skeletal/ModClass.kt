@@ -43,28 +43,28 @@ class ModClass {
         minecraft.entityRenderer.enableLightmap(666.666)
         ANIMATED_MODEL_SHADER.use {
             modelsToRender.forEach { (model, renderType) ->
-                renderSkeletalModel(model, renderType, event.partialTicks)
+                renderSkeletalModel(model, renderType)
             }
         }
         minecraft.entityRenderer.disableLightmap(666.666)
-
-        modelsToRender.clear() // Reset stack after rendering
+        lastRenderTime = System.currentTimeMillis()
+        modelsToRender.clear() // Reset after rendering
     }
 
-    private fun renderSkeletalModel(model: AdaptedModel, renderType: RenderType, part: Float) {
+    private fun renderSkeletalModel(model: AdaptedModel, renderType: RenderType) {
         with(model) {
             updateMatrices(renderPosX.toFloat(), renderPosY.toFloat(), renderPosZ.toFloat())
-
-            animator.update(part * 5) // TODO : Time
-            skeletonCacheBuf.clear()
-            animator.storeSkeletonData(skeletonCacheBuf)
-            skeletonCacheBuf.flip()
+            animator.update((System.currentTimeMillis() - lastRenderTime) * 0.001f)
 
             val light = minecraft.theWorld.getLightBrightnessForSkyBlocks(
                     position.x.toInt(), position.y.toInt(), position.z.toInt(), 0
             ).toFloat()
-            val lightU = (light % 65536 + 8f) / 256
-            val lightV = (light / 65536 + 8f) / 256
+            val lightU = (light % 65536 + 8f) / 256f
+            val lightV = (light / 65536 + 8f) / 256f
+
+            skeletonCacheBuf.clear()
+            animator.storeSkeletonData(skeletonCacheBuf)
+            skeletonCacheBuf.flip()
 
             modelBuf.clear()
             modelMatrix.store(modelBuf)
@@ -93,6 +93,7 @@ class ModClass {
     companion object {
         // AdaptedModel data
         val modelsToRender: ArrayList<Pair<AdaptedModel, RenderType>> = ArrayList(1024)
+        private var lastRenderTime = System.currentTimeMillis()
         private val modelBuf = BufferUtils.createFloatBuffer(16)
         private val inverseTransposeBuf = BufferUtils.createFloatBuffer(9)
         private val skeletonCacheBuf: FloatBuffer by lazy {

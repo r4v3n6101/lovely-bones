@@ -25,8 +25,6 @@ import skeletal.model.animated.Bone
 import skeletal.model.animated.Keyframe
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.*
-import kotlin.collections.ArrayList
 
 object IQMLoader : IModelCustomLoader {
     override fun getSuffixes() = arrayOf("iqm")
@@ -79,11 +77,14 @@ object IQMLoader : IModelCustomLoader {
             meshes += readMesh(buf, text)
         }
 
-        val bones: ArrayList<Bone> = ArrayList(hdr.bonesNum)
+        val bonesList = ArrayList<Bone>(hdr.bonesNum) // Helpful list for using indices only
+        val bonesMap = HashMap<String, Bone>(hdr.bonesNum)
         if (hdr.bonesOffset > 0) {
             buf.position(hdr.bonesOffset)
             repeat(hdr.bonesNum) {
-                bones += readBone(buf, text, bones)
+                val (name, bone) = readBone(buf, text, bonesList)
+                bonesList += bone
+                bonesMap[name] = bone
             }
         }
 
@@ -104,9 +105,8 @@ object IQMLoader : IModelCustomLoader {
                         )
                 )
             }
-
             buf.position(hdr.framedataOffset)
-            val keyframes = readKeyframes(hdr, buf, poses, bones)
+            val keyframes = readKeyframes(hdr, buf, poses, bonesList)
 
             buf.position(hdr.animsOffset)
             repeat(hdr.animsNum) {
@@ -114,14 +114,13 @@ object IQMLoader : IModelCustomLoader {
             }
         }
 
-        return AnimatedModel(vao, meshes, bones, anims)
+        return AnimatedModel(vao, meshes, bonesMap, anims)
     }
 
     private fun checkIqm(hdr: Header) {
-        println(hdr)
         check(hdr.magic == IQM_MAGIC) { "Wrong magic" }
         check(hdr.version == IQM_VERSION) { "Wrong version of IQM" }
-        check(hdr.filesize < 16 shl 20) { "Models bigger than 16MB isn't supported" }
+        check(hdr.filesize <= 16 shl 20) { "Models bigger than 16MB aren't supported" }
         check(hdr.textOffset > 0) { "Text data hasn't found" }
         check(hdr.vertexarraysOffset > 0) { "Vertex arrays data hasn't found" }
         check(hdr.trianglesOffset > 0) { "Triangles data hasn't found" }
@@ -166,23 +165,50 @@ object IQMLoader : IModelCustomLoader {
                             .apply { normalise() }
                     val s = Vector3f(off[7], off[8], off[9])
 
-                    val m = buildTransform(q, s, p)
-                    if (pose.parent >= 0) Matrix4f.mul(transforms[pose.parent], m, m)
-                    transforms[j] = m
+                    val transform = buildTransform(q, s, p)
+                    if (pose.parent >= 0) Matrix4f.mul(transforms[pose.parent], transform, transform)
+                    transforms[j] = transform
                 }
-                for (j in transforms.indices) {
+                for (j in transforms.indices)
                     Matrix4f.mul(transforms[j], bones[j].inverseBaseTransform, transforms[j])
-                }
                 Keyframe(transforms.map(DualQuat.Companion::fromMatrix).toTypedArray())
             }
 
-    private fun readBone(buf: ByteBuffer, text: ByteArray, bones: List<Bone>) = Bone(
-            name = readNulString(text, buf.int),
-            parent = bones.getOrNull(buf.int),
-            position = Vector3f(buf.float, buf.float, buf.float),
-            rotation = Quaternion(buf.float, buf.float, buf.float, buf.float).apply { normalise() },
-            scale = Vector3f(buf.float, buf.float, buf.float)
-    )
+    @Deprecated("Doesn't work correctly")
+    private fun readKeyframesDQ(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: List<Bone>) =
+            List(hdr.framesNum) { _ ->
+                val transforms = Array(poses.size) { DualQuat() }
+                for (j in transforms.indices) {
+                    val pose = poses[j]
+                    val off = pose.offset.copyOf()
+                    for (channel in off.indices)
+                        if ((pose.mask ushr channel) and 1 != 0)
+                            off[channel] += pose.scale[channel] * (buf.short.toInt() and 0xffff)
+
+                    val p = Vector3f(off[0], off[1], off[2])
+                    val q = Quaternion(off[3], off[4], off[5], off[6])
+                            .apply { normalise() }
+                    val s = Vector3f(off[7], off[8], off[9])
+
+                    val transform = DualQuat.fromQuatAndTranslation(q, p)
+                    if (pose.parent >= 0) DualQuat.mul(transforms[pose.parent], transform, transform)
+                    transforms[j] = transform
+                }
+                for (j in transforms.indices)
+                    DualQuat.mul(transforms[j], bones[j].inverseBaseTransformDQ, transforms[j])
+                Keyframe(transforms)
+            }
+
+    private fun readBone(buf: ByteBuffer, text: ByteArray, bones: List<Bone>): Pair<String, Bone> {
+        val name = readNulString(text, buf.int)
+        return name to Bone(
+                index = bones.size,
+                parent = bones.getOrNull(buf.int),
+                position = Vector3f(buf.float, buf.float, buf.float),
+                rotation = Quaternion(buf.float, buf.float, buf.float, buf.float).apply { normalise() },
+                scale = Vector3f(buf.float, buf.float, buf.float)
+        )
+    }
 
     private fun readAnimation(buf: ByteBuffer, text: ByteArray, keyframes: List<Keyframe>): Pair<String, Animation> {
         val name = readNulString(text, buf.int)
@@ -272,7 +298,6 @@ object IQMLoader : IModelCustomLoader {
             if (material.isNotEmpty()) {
                 val path = ResourceLocation(ModClass.DOMAIN, "textures/$material.png")
                 val texture = SimpleTexture(path)
-                println("Trying to load: $path")
                 if (minecraft.textureManager.loadTexture(path, texture))
                     texture.glTextureId
                 else

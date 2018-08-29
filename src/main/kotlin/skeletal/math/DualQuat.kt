@@ -4,73 +4,79 @@ import org.lwjgl.util.vector.*
 import java.nio.FloatBuffer
 
 /**
- * Represent dual quaternion q0 + q1 * e, where's e is epsilon and e^2 == 0
+ * Represent dual quaternion real + dual * e, where's e is epsilon and e^2 == 0
  */
-class DualQuat(
-        val q0: Quaternion = Quaternion(),
-        val q1: Quaternion = Quaternion(0f, 0f, 0f, 0f)
+data class DualQuat(
+        val real: Quaternion = Quaternion(),
+        val dual: Quaternion = Quaternion(0f, 0f, 0f, 0f)
 ) : Vector(), ReadableVector {
 
     /**
      * Scale each quat
      */
     override fun scale(scale: Float): DualQuat {
-        q0.scale(scale)
-        q1.scale(scale)
+        real.scale(scale)
+        dual.scale(scale)
         return this
     }
 
     /**
-     * Same as ||q0||^2
+     * Same as ||real||^2
      */
-    override fun lengthSquared() = q0.lengthSquared()
+    override fun lengthSquared() = real.lengthSquared()
 
     /**
-     * Sequently write q0 & q1
+     * Sequently write real & dual
      */
-    override fun store(buf: FloatBuffer): Vector {
-        q0.store(buf)
-        q1.store(buf)
+    override fun store(buf: FloatBuffer): DualQuat {
+        real.store(buf)
+        dual.store(buf)
         return this
     }
 
     /**
-     * Negate each quat
+     * Conjugate each quat
      */
-    override fun negate(): Vector {
-        q0.negate()
-        q1.negate()
+    override fun negate(): DualQuat {
+        real.negate()
+        dual.negate()
         return this
     }
 
-    fun dot(dq: DualQuat) = Quaternion.dot(q0, dq.q0)
+    fun dot(dq: DualQuat) = Quaternion.dot(real, dq.real)
 
     /**
-     * Load q0 & q1 sequently, q0 is first
+     * Load real & dual sequently, real is first
      */
-    override fun load(buf: FloatBuffer): Vector {
-        q0.load(buf)
-        q1.load(buf)
+    override fun load(buf: FloatBuffer): DualQuat {
+        real.load(buf)
+        dual.load(buf)
         return this
     }
 
     companion object {
-        fun fromQuatAndTranslation(q: Quaternion, t: Vector3f) =
-                DualQuat(Quaternion(q), mulPure(q, t).scale(0.5f) as Quaternion)
+        @JvmStatic
+        fun mul(lhs: DualQuat, rhs: DualQuat, dest: DualQuat?): DualQuat {
+            val out = dest ?: DualQuat()
+            val r = Quaternion.mul(lhs.real, rhs.real, null)
+            val q0 = Quaternion.mul(lhs.real, rhs.dual, null)
+            val q1 = Quaternion.mul(lhs.dual, rhs.real, null)
+            out.real.set(r)
+            out.dual.set(q0.x + q1.x, q0.y + q1.y, q0.z + q1.z, q0.w + q1.w)
+            return out
+        }
 
-        fun fromMatrixAndTranslation(basis: Matrix3f, t: Vector3f): DualQuat {
-            val q = Quaternion()
-            q.setFromMatrix(basis)
-            q.normalise()
-            return fromQuatAndTranslation(q, t)
+        fun fromQuatAndTranslation(q: Quaternion, t: Vector3f): DualQuat {
+            val real = Quaternion(q).normalise() as Quaternion
+            val dual = mulPure(real, t).scale(0.5f) as Quaternion
+            return DualQuat(real, dual)
         }
 
         fun fromMatrix(matrix: Matrix4f): DualQuat {
-            val q = Quaternion()
-            q.setFromMatrix(matrix)
-            q.normalise()
+            val r = Quaternion()
+            r.setFromMatrix(matrix)
             val t = Vector3f(matrix.m30, matrix.m31, matrix.m32)
-            return fromQuatAndTranslation(q, t)
+            return fromQuatAndTranslation(r, t)
         }
     }
 }

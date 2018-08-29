@@ -17,8 +17,8 @@ import skeletal.model.animated.AnimatedModel
 @Mod(modid = "example_skeletal")
 class ExampleMod {
     @Mod.EventHandler
-    fun preInit(fml: FMLPreInitializationEvent) {
-        if (fml.side == Side.CLIENT) {
+    fun preInit(event: FMLPreInitializationEvent) {
+        if (event.side == Side.CLIENT) {
             MinecraftForge.EVENT_BUS.register(this)
             FMLCommonHandler.instance().bus().register(this)
         }
@@ -26,22 +26,22 @@ class ExampleMod {
 
     @SubscribeEvent
     fun worldRenderer(event: RenderWorldLastEvent) {
-        modelAdapted.setPosition(5f, 4f, 5f)
-        modelAdapted.setAngles(-45.5f, 0f, 0f)
+        modelAdapted.setPosition(5f, 10f, 5f)
+        modelAdapted.setAngles(Math.toRadians(-90.0).toFloat(), 0f, 0f)
         modelAdapted.setScale(0.04f, 0.04f, 0.04f)
         modelAdapted.render(RenderType.All)
         if (Keyboard.isKeyDown(Keyboard.KEY_K)) {
             modelAdapted.play("idle2", 1f)
-            modelAdapted.resetTime()
         }
-        if (Keyboard.isKeyDown(Keyboard.KEY_L)) {
-            modelAdapted.stop("idle2")
+        if (Keyboard.isKeyDown(Keyboard.KEY_P) && modelAdapted.isPlaying("idle2")) {
+            modelAdapted.pause("idle2")
+        }
+        if (Keyboard.isKeyDown(Keyboard.KEY_R) && modelAdapted.isPlaying("idle2")) {
+            modelAdapted.resume("idle2")
         }
     }
 
-    private val modelAdapted by lazy {
-        AdaptedModel(
-                AdvancedModelLoader.loadModel(ResourceLocation("skeletal:models/model.iqm")) as AnimatedModel
-        )
+    private val modelAdapted: AdaptedModel by lazy {
+        AdaptedModel(AdvancedModelLoader.loadModel(ResourceLocation("skeletal:models/hellknight.iqm")) as AnimatedModel)
     }
 }
