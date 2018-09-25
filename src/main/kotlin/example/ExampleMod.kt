@@ -13,6 +13,7 @@ import org.lwjgl.input.Keyboard
 import skeletal.adapted.AdaptedModel
 import skeletal.adapted.RenderType
 import skeletal.model.animated.AnimatedModel
+import java.lang.Math.toRadians
 
 @Mod(modid = "example_skeletal")
 class ExampleMod {
@@ -27,7 +28,7 @@ class ExampleMod {
     @SubscribeEvent
     fun worldRenderer(event: RenderWorldLastEvent) {
         modelAdapted.setPosition(5f, 10f, 5f)
-        modelAdapted.setAngles(Math.toRadians(-90.0).toFloat(), 0f, 0f)
+        modelAdapted.setAngles(-toRadians(90.0).toFloat(), 0f, 0f)
         modelAdapted.setScale(0.04f, 0.04f, 0.04f)
         modelAdapted.render(RenderType.All)
         if (Keyboard.isKeyDown(Keyboard.KEY_K)) {

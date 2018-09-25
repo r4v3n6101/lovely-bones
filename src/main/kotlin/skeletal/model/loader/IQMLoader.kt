@@ -174,7 +174,7 @@ object IQMLoader : IModelCustomLoader {
                 Keyframe(transforms.map(DualQuat.Companion::fromMatrix).toTypedArray())
             }
 
-    @Deprecated("Doesn't work correctly")
+    /*@Deprecated("Doesn't work correctly")
     private fun readKeyframesDQ(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: List<Bone>) =
             List(hdr.framesNum) { _ ->
                 val transforms = Array(poses.size) { DualQuat() }
@@ -197,7 +197,7 @@ object IQMLoader : IModelCustomLoader {
                 for (j in transforms.indices)
                     DualQuat.mul(transforms[j], bones[j].inverseBaseTransformDQ, transforms[j])
                 Keyframe(transforms)
-            }
+            }*/
 
     private fun readBone(buf: ByteBuffer, text: ByteArray, bones: List<Bone>): Pair<String, Bone> {
         val name = readNulString(text, buf.int)

@@ -3,7 +3,6 @@ package skeletal.model.animated
 import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
-import skeletal.math.DualQuat
 import skeletal.math.buildTransform
 
 class Bone(
@@ -24,7 +23,7 @@ class Bone(
 
     val inverseBaseTransform: Matrix4f by lazy { Matrix4f.invert(baseTransform, null) }
 
-    val baseTransformDQ: DualQuat by lazy {
+    /*val baseTransformDQ: DualQuat by lazy {
         val transform = DualQuat.fromQuatAndTranslation(rotation, position)
         val parentBone = parent
         if (parentBone != null)
@@ -37,5 +36,5 @@ class Bone(
                 Quaternion(baseTransformDQ.real),
                 Quaternion(baseTransformDQ.dual)
         ).negate()
-    }
+    }*/
 }

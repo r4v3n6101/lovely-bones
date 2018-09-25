@@ -1,16 +1,13 @@
 package skeletal.animator
 
-import org.lwjgl.util.vector.Matrix4f
+import org.lwjgl.util.vector.Quaternion
 import skeletal.math.DualQuat
-import skeletal.model.animated.Bone
 import java.nio.FloatBuffer
 import kotlin.math.floor
 
 class Animator(private val bones: Int) {
 
-    private val transforms = Array(bones) { DualQuat() } // TODO : Rewrite
     val animations = HashMap<String, AnimationItem>()
-    //val manualTransforms = HashMap<Bone, Matrix4f>() // TODO : Manual transforms
 
     fun update(dt: Float) {
         val iter = animations.iterator()
@@ -23,8 +20,9 @@ class Animator(private val bones: Int) {
     }
 
     fun storeSkeletonData(buf: FloatBuffer) {
-        // 0f required to correct sum of dual quats. If no anims, then w = 1f. Or?..
-        // TODO : val defaultW = if (animations.isEmpty()) 1f else 0f
+        // 0f required to correct sum of dual quats. If no anims, then w = 1f
+        val defaultW = if (animations.isEmpty()) 1f else 0f
+        val transforms = Array(bones) { DualQuat(Quaternion(0f, 0f, 0f, defaultW)) } // TODO : Rewrite
         animations.forEach { (_, shot) ->
             val anim = shot.animation
             val weight = shot.weight
@@ -49,10 +47,6 @@ class Animator(private val bones: Int) {
             }
         }
         transforms.forEach { it.store(buf) }
-    }
-
-    private fun makeBoneTransform(bone: Bone, transform: Matrix4f) {
-        // transforms[bone.parent.id] * bone.parent.baseTransform * transform * bone.inverse
     }
 
     private fun lerpAddWeight(dq0: DualQuat, dq1: DualQuat, k: Float, w: Float, dest: DualQuat) {
