@@ -113,7 +113,8 @@ class ModClass {
         }
         val ANIMATED_MODEL_SHADER: Shader by lazy {
             val vertexText = ResourceLocation(DOMAIN, "shaders/animated_vertex.glsl").inputStream!!.bufferedReader()
-                    .use(BufferedReader::readText).replace("{MAX_BONES}", "$MAX_BONES")
+                    .use(BufferedReader::readText)
+                    .replace("{MAX_BONES}", "$MAX_BONES")
             val fragText = ResourceLocation(DOMAIN, "shaders/model_fragment.glsl").inputStream!!.bufferedReader()
                     .use(BufferedReader::readText)
 

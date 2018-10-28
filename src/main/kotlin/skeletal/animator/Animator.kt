@@ -39,7 +39,7 @@ class Animator(private val bones: Int) {
                 val dq0 = keyframe1.transforms[i]
                 val dq1 = keyframe2.transforms[i]
                 val dest = transforms[i]
-                if (dq0.dot(dq1) >= 0)
+                if (DualQuat.dot(dq0, dq1) >= 0)
                     lerpAddWeight(dq0, dq1, lerpStep, weight, dest)
                 else
                     negatedLerpAddWeight(dq0, dq1, lerpStep, weight, dest)

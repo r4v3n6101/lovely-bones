@@ -9,14 +9,12 @@ import org.lwjgl.opengl.GL15.*
 import org.lwjgl.opengl.GL20.glEnableVertexAttribArray
 import org.lwjgl.opengl.GL20.glVertexAttribPointer
 import org.lwjgl.opengl.GL30.*
-import org.lwjgl.util.vector.Matrix4f
 import org.lwjgl.util.vector.Quaternion
 import org.lwjgl.util.vector.Vector3f
 import skeletal.ModClass
 import skeletal.graphics.VertexArrayObject
 import skeletal.inputStream
 import skeletal.math.DualQuat
-import skeletal.math.buildTransform
 import skeletal.minecraft
 import skeletal.model.Mesh
 import skeletal.model.animated.AnimatedModel
@@ -107,7 +105,6 @@ object IQMLoader : IModelCustomLoader {
             }
             buf.position(hdr.framedataOffset)
             val keyframes = readKeyframes(hdr, buf, poses, bonesList)
-
             buf.position(hdr.animsOffset)
             repeat(hdr.animsNum) {
                 anims += readAnimation(buf, text, keyframes)
@@ -152,31 +149,6 @@ object IQMLoader : IModelCustomLoader {
 
     private fun readKeyframes(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: List<Bone>) =
             List(hdr.framesNum) { _ ->
-                val transforms = Array(poses.size) { Matrix4f() }
-                for (j in transforms.indices) {
-                    val pose = poses[j]
-                    val off = pose.offset.copyOf()
-                    for (channel in off.indices)
-                        if ((pose.mask ushr channel) and 1 != 0)
-                            off[channel] += pose.scale[channel] * (buf.short.toInt() and 0xffff)
-
-                    val p = Vector3f(off[0], off[1], off[2])
-                    val q = Quaternion(off[3], off[4], off[5], off[6])
-                            .apply { normalise() }
-                    val s = Vector3f(off[7], off[8], off[9])
-
-                    val transform = buildTransform(q, s, p)
-                    if (pose.parent >= 0) Matrix4f.mul(transforms[pose.parent], transform, transform)
-                    transforms[j] = transform
-                }
-                for (j in transforms.indices)
-                    Matrix4f.mul(transforms[j], bones[j].inverseBaseTransform, transforms[j])
-                Keyframe(transforms.map(DualQuat.Companion::fromMatrix).toTypedArray())
-            }
-
-    /*@Deprecated("Doesn't work correctly")
-    private fun readKeyframesDQ(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: List<Bone>) =
-            List(hdr.framesNum) { _ ->
                 val transforms = Array(poses.size) { DualQuat() }
                 for (j in transforms.indices) {
                     val pose = poses[j]
@@ -185,19 +157,21 @@ object IQMLoader : IModelCustomLoader {
                         if ((pose.mask ushr channel) and 1 != 0)
                             off[channel] += pose.scale[channel] * (buf.short.toInt() and 0xffff)
 
-                    val p = Vector3f(off[0], off[1], off[2])
+                    val t = Vector3f(off[0], off[1], off[2])
                     val q = Quaternion(off[3], off[4], off[5], off[6])
                             .apply { normalise() }
-                    val s = Vector3f(off[7], off[8], off[9])
+                    // Unused scale: val s = Vector3f(off[7], off[8], off[9])
 
-                    val transform = DualQuat.fromQuatAndTranslation(q, p)
-                    if (pose.parent >= 0) DualQuat.mul(transforms[pose.parent], transform, transform)
-                    transforms[j] = transform
+                    transforms[j] = DualQuat.fromQuatAndTranslation(q, t)
+                    if (pose.parent >= 0) {
+                        DualQuat.mul(transforms[pose.parent], transforms[j], transforms[j]).normalise()
+                    }
                 }
-                for (j in transforms.indices)
-                    DualQuat.mul(transforms[j], bones[j].inverseBaseTransformDQ, transforms[j])
+                for (j in transforms.indices) {
+                    DualQuat.mul(transforms[j], bones[j].inverseBaseTransform, transforms[j]).normalise()
+                }
                 Keyframe(transforms)
-            }*/
+            }
 
     private fun readBone(buf: ByteBuffer, text: ByteArray, bones: List<Bone>): Pair<String, Bone> {
         val name = readNulString(text, buf.int)
@@ -228,7 +202,7 @@ object IQMLoader : IModelCustomLoader {
      */
     private fun readVertexArrayToVBO(buf: ByteBuffer, vertices: Int): Int {
         val type = VertexArrayType.values()[buf.int]
-        val flags = buf.int
+        buf.int // flags
         val format = VertexArrayFormat.values()[buf.int]
         val size = buf.int // size of attribute (1 to 4)
         val offset = buf.int
@@ -332,7 +306,7 @@ object IQMLoader : IModelCustomLoader {
             val framechannelsNum: Int,
             val framedataOffset: Int,
             val boundsOffset: Int
-            // Other fields're unused
+            // Other fields are unused
     )
 
     private class Pose(val parent: Int, val mask: Int, val offset: FloatArray, val scale: FloatArray)

@@ -42,9 +42,10 @@ void main(void) {
 }
 
 vec3 transformPoint(vec3 point, vec4 real, vec4 dual) {
-    return rotatePoint(point, real) + 2 * (real.w * dual.xyz - dual.w * real.xyz + cross(dual.xyz, real.xyz));
+    vec3 translation = 2 * (real.w * dual.xyz - dual.w * real.xyz + cross(real.xyz, dual.xyz));
+    return rotatePoint(point, real) + translation;
 }
 
 vec3 rotatePoint(vec3 point, vec4 real) {
-    return point + 2 * cross(real.w * point + cross(point, real.xyz), real.xyz);
+    return point + 2 * cross(real.xyz, cross(real.xyz, point) + real.w * point);
 }
