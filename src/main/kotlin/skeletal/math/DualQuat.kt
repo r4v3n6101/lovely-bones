@@ -59,6 +59,20 @@ data class DualQuat(
 
     companion object {
 
+        fun invert(dq: DualQuat, dest: DualQuat?): DualQuat {
+            val out = dest ?: DualQuat()
+
+            val real = Quaternion.negate(dq.real, out.real)
+            val dual = Quaternion.mul(Quaternion.mul(real, dq.dual, out.dual), real, out.dual)
+
+            dual.x = -dual.x
+            dual.y = -dual.y
+            dual.z = -dual.z
+            dual.w = -dual.w
+
+            return out
+        }
+
         fun dot(dq0: DualQuat, dq1: DualQuat) = Quaternion.dot(dq0.real, dq1.real)
 
         fun mul(lhs: DualQuat, rhs: DualQuat, dest: DualQuat?): DualQuat {

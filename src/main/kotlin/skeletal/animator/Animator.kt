@@ -2,29 +2,45 @@ package skeletal.animator
 
 import org.lwjgl.util.vector.Quaternion
 import skeletal.math.DualQuat
+import skeletal.model.animated.Bone
 import java.nio.FloatBuffer
 import kotlin.math.floor
 
-class Animator(private val bones: Int) {
+class Animator(private val bones: Array<Bone>) {
 
+    private val bindPoseTransforms = Array(bones.size) { DualQuat.fromQuatAndTranslation(bones[it].rotation, bones[it].position) } // Default
+    var transforms = bindPoseTransforms.copyOf()
     val animations = HashMap<String, AnimationItem>()
 
     fun update(dt: Float) {
         val iter = animations.iterator()
         while (iter.hasNext()) {
             val shot = iter.next().value
-            if (!shot.paused) shot.elapsedFrames += dt * shot.animation.framerate
-            if (!shot.loop && shot.elapsedFrames + 1f > shot.animation.keyframes.size.toFloat())
+            if (!shot.paused) shot.elapsedFrames += dt * shot.framerate
+            if (!shot.loop && shot.elapsedFrames + 1f > shot.keyframes.size.toFloat())
                 iter.remove()
         }
     }
 
     fun storeSkeletonData(buf: FloatBuffer) {
-        // 0f required to correct sum of dual quats. If no anims, then w = 1f
-        val defaultW = if (animations.isEmpty()) 1f else 0f
-        val transforms = Array(bones) { DualQuat(Quaternion(0f, 0f, 0f, defaultW)) } // TODO : Rewrite
+        val composedTransforms = Array(transforms.size) { DualQuat() }
+        for (i in transforms.indices) {
+            val dq = DualQuat(transforms[i])
+
+            val bone = bones[i]
+            if (bone.parentIndex != -1) {
+                DualQuat.mul(composedTransforms[bone.parentIndex], dq, dq)
+            }
+            composedTransforms[i] = DualQuat(dq)
+
+            DualQuat.mul(dq, bones[i].inverseBaseTransform, dq)
+            dq.store(buf)
+        }
+    }
+
+    fun calculateAnimationsTransforms(): Array<DualQuat> {
+        val animationTransforms = Array(bones.size) { DualQuat(Quaternion(0f, 0f, 0f, 0f)) }
         animations.forEach { (_, shot) ->
-            val anim = shot.animation
             val weight = shot.weight
             val elapsed = shot.elapsedFrames
 
@@ -32,22 +48,24 @@ class Animator(private val bones: Int) {
             val kf2 = kf1 + 1
             val lerpStep = elapsed - kf1 // fract part of time
 
-            val keyframe1 = anim.keyframes[kf1 % anim.keyframes.size]
-            val keyframe2 = anim.keyframes[kf2 % anim.keyframes.size]
+            val keyframe1 = shot.keyframes[kf1 % shot.keyframes.size]
+            val keyframe2 = shot.keyframes[kf2 % shot.keyframes.size]
 
-            for (i in 0 until bones) {
+            for (i in 0 until bones.size) {
                 val dq0 = keyframe1.transforms[i]
                 val dq1 = keyframe2.transforms[i]
-                val dest = transforms[i]
+                val dest = animationTransforms[i]
+
                 if (DualQuat.dot(dq0, dq1) >= 0)
                     lerpAddWeight(dq0, dq1, lerpStep, weight, dest)
                 else
                     negatedLerpAddWeight(dq0, dq1, lerpStep, weight, dest)
+
                 if (dest.lengthSquared() > 0f) dest.normalise()
             }
         }
-        transforms.forEach { it.store(buf) }
-    }
+        return animationTransforms
+    } // TODO : Clean up
 
     private fun lerpAddWeight(dq0: DualQuat, dq1: DualQuat, k: Float, w: Float, dest: DualQuat) {
         dest.real.x += (dq0.real.x + k * (dq1.real.x - dq0.real.x)) * w

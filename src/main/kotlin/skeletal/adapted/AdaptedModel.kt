@@ -14,7 +14,7 @@ class AdaptedModel(
         val angles: Vector3f = Vector3f(), // Euler angles, in radians
         val scale: Vector3f = Vector3f(1f, 1f, 1f)
 ) {
-    val animator = Animator(animatedModel.skeleton.size)
+    val animator = Animator(animatedModel.skeleton)
     val modelMatrix: Matrix4f = Matrix4f()
     val inverseTransposeMatrix: Matrix3f = Matrix3f()
 
@@ -56,7 +56,12 @@ class AdaptedModel(
     }
 
     fun play(name: String, weight: Float) {
-        animator.animations[name] = AnimationItem(animatedModel.animations[name]!!, weight)
+        val animation = animatedModel.animations[name]!!
+        animator.animations[name] = AnimationItem(
+                keyframes = animation.keyframes, // TODO : copyOf()
+                framerate = animation.framerate,
+                weight = weight
+        )
     }
 
     fun pause(name: String) {

@@ -5,23 +5,25 @@ import org.lwjgl.util.vector.Vector3f
 import skeletal.math.DualQuat
 
 class Bone(
-        val index: Int, // Used for fast indexing of transforms
-        val parent: Bone?,
+        val name: String,
+        val parentIndex: Int,
         val position: Vector3f,
         val rotation: Quaternion,
         val scale: Vector3f
 ) {
 
-    val baseTransform: DualQuat by lazy {
+    fun calculateBaseTransform(skeleton: Array<Bone>) {
         val transform = DualQuat.fromQuatAndTranslation(rotation, position)
-        val parentBone = parent
-        if (parentBone != null) {
-            DualQuat.mul(parentBone.baseTransform, transform, transform)
+        if (parentIndex != -1) {
+            DualQuat.mul(skeleton[parentIndex].baseTransform, transform, transform)
         }
-        transform
+        baseTransform = transform
     }
 
+    var baseTransform = DualQuat()
+        private set
+
     val inverseBaseTransform: DualQuat by lazy {
-        DualQuat(baseTransform).negate()
+        DualQuat.invert(baseTransform, null)
     }
 }

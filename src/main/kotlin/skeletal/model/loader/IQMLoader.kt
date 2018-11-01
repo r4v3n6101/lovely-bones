@@ -75,14 +75,14 @@ object IQMLoader : IModelCustomLoader {
             meshes += readMesh(buf, text)
         }
 
-        val bonesList = ArrayList<Bone>(hdr.bonesNum) // Helpful list for using indices only
-        val bonesMap = HashMap<String, Bone>(hdr.bonesNum)
-        if (hdr.bonesOffset > 0) {
+        val skeleton = if (hdr.bonesOffset > 0) {
             buf.position(hdr.bonesOffset)
-            repeat(hdr.bonesNum) {
-                val (name, bone) = readBone(buf, text, bonesList)
-                bonesList += bone
-                bonesMap[name] = bone
+            Array(hdr.bonesNum) { readBone(buf, text) }
+        } else emptyArray()
+
+        if (hdr.bonesOffset > 0) { // TODO : Reduce code repetition
+            skeleton.forEach { bone ->
+                bone.calculateBaseTransform(skeleton)
             }
         }
 
@@ -104,14 +104,14 @@ object IQMLoader : IModelCustomLoader {
                 )
             }
             buf.position(hdr.framedataOffset)
-            val keyframes = readKeyframes(hdr, buf, poses, bonesList)
+            val keyframes = readKeyframes(hdr, buf, poses, skeleton)
             buf.position(hdr.animsOffset)
             repeat(hdr.animsNum) {
                 anims += readAnimation(buf, text, keyframes)
             }
         }
 
-        return AnimatedModel(vao, meshes, bonesMap, anims)
+        return AnimatedModel(vao, meshes, skeleton, anims)
     }
 
     private fun checkIqm(hdr: Header) {
@@ -147,10 +147,9 @@ object IQMLoader : IModelCustomLoader {
         return meshName to Mesh(loadTexture(material), firstTri * 3, numTris * 3)
     }
 
-    private fun readKeyframes(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: List<Bone>) =
+    private fun readKeyframes(hdr: Header, buf: ByteBuffer, poses: Array<Pose>, bones: Array<Bone>) =
             List(hdr.framesNum) { _ ->
-                val transforms = Array(poses.size) { DualQuat() }
-                for (j in transforms.indices) {
+                val transforms = Array(poses.size) { j ->
                     val pose = poses[j]
                     val off = pose.offset.copyOf()
                     for (channel in off.indices)
@@ -160,29 +159,20 @@ object IQMLoader : IModelCustomLoader {
                     val t = Vector3f(off[0], off[1], off[2])
                     val q = Quaternion(off[3], off[4], off[5], off[6])
                             .apply { normalise() }
-                    // Unused scale: val s = Vector3f(off[7], off[8], off[9])
+                    // Unused: val s = Vector3f(off[7], off[8], off[9])
 
-                    transforms[j] = DualQuat.fromQuatAndTranslation(q, t)
-                    if (pose.parent >= 0) {
-                        DualQuat.mul(transforms[pose.parent], transforms[j], transforms[j]).normalise()
-                    }
-                }
-                for (j in transforms.indices) {
-                    DualQuat.mul(transforms[j], bones[j].inverseBaseTransform, transforms[j]).normalise()
+                    DualQuat.fromQuatAndTranslation(q, t)
                 }
                 Keyframe(transforms)
             }
 
-    private fun readBone(buf: ByteBuffer, text: ByteArray, bones: List<Bone>): Pair<String, Bone> {
-        val name = readNulString(text, buf.int)
-        return name to Bone(
-                index = bones.size,
-                parent = bones.getOrNull(buf.int),
-                position = Vector3f(buf.float, buf.float, buf.float),
-                rotation = Quaternion(buf.float, buf.float, buf.float, buf.float).apply { normalise() },
-                scale = Vector3f(buf.float, buf.float, buf.float)
-        )
-    }
+    private fun readBone(buf: ByteBuffer, text: ByteArray) = Bone(
+            name = readNulString(text, buf.int),
+            parentIndex = buf.int,
+            position = Vector3f(buf.float, buf.float, buf.float),
+            rotation = Quaternion(buf.float, buf.float, buf.float, buf.float).apply { normalise() },
+            scale = Vector3f(buf.float, buf.float, buf.float)
+    )
 
     private fun readAnimation(buf: ByteBuffer, text: ByteArray, keyframes: List<Keyframe>): Pair<String, Animation> {
         val name = readNulString(text, buf.int)
